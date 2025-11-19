@@ -1,0 +1,173 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Expense;
+use App\Models\Collaborator;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+class ExpenseController extends Controller
+{
+    // Liste toutes les notes de frais (Admin/Comptable)
+    public function index(Request $request)
+    {
+        $query = Expense::with('collaborator.user');
+
+        // Filtres
+        if ($request->has('statut') && $request->statut) {
+            $query->where('statut', $request->statut);
+        }
+
+        if ($request->has('categorie') && $request->categorie) {
+            $query->where('categorie', $request->categorie);
+        }
+
+        $expenses = $query->orderBy('created_at', 'desc')->get();
+
+        return response()->json($expenses, 200);
+    }
+
+    // Notes de frais du collaborateur connecté
+    public function myExpenses(Request $request)
+    {
+        $user = $request->user();
+
+        // ✅ CORRECTION : Chercher le collaborator par user_id
+        $collaborator = Collaborator::where('user_id', $user->id)->first();
+
+        if (!$collaborator) {
+            return response()->json([
+                'message' => 'Vous devez être enregistré comme collaborateur.',
+                'error' => 'Collaborateur introuvable'
+            ], 403);
+        }
+
+        $expenses = Expense::where('collaborator_id', $collaborator->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($expenses, 200);
+    }
+
+    // Créer une note de frais
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'categorie' => 'required|in:Transport,Hébergement,Restauration,Fournitures,Autre',
+            'montant' => 'required|numeric|min:100',
+            'date' => 'required|date',
+            'description' => 'required|string|min:10',
+            'justificatif' => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:5120',
+        ]);
+
+        $user = $request->user();
+
+        // ✅ CORRECTION : Chercher le collaborator par user_id
+        $collaborator = Collaborator::where('user_id', $user->id)->first();
+
+        if (!$collaborator) {
+            return response()->json([
+                'message' => 'Vous devez être enregistré comme collaborateur.',
+                'error' => 'Collaborateur introuvable'
+            ], 403);
+        }
+
+        // Upload du justificatif
+        if ($request->hasFile('justificatif')) {
+            $path = $request->file('justificatif')->store('justificatifs', 'public');
+            $validated['justificatif'] = $path;
+        }
+
+        $validated['collaborator_id'] = $collaborator->id;
+
+        $expense = Expense::create($validated);
+
+        return response()->json([
+            'message' => 'Note de frais créée avec succès.',
+            'data' => $expense
+        ], 201);
+    }
+
+    // Approuver une note de frais
+    public function approve($id)
+    {
+        $expense = Expense::find($id);
+
+        if (!$expense) {
+            return response()->json(['message' => 'Note de frais introuvable.'], 404);
+        }
+
+        $expense->update(['statut' => 'Approuvée']);
+
+        return response()->json([
+            'message' => 'Note de frais approuvée.',
+            'data' => $expense
+        ], 200);
+    }
+
+    // Rejeter une note de frais
+    public function reject(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'motif_rejet' => 'required|string|min:10',
+        ]);
+
+        $expense = Expense::find($id);
+
+        if (!$expense) {
+            return response()->json(['message' => 'Note de frais introuvable.'], 404);
+        }
+
+        $expense->update([
+            'statut' => 'Rejetée',
+            'motif_rejet' => $validated['motif_rejet']
+        ]);
+
+        return response()->json([
+            'message' => 'Note de frais rejetée.',
+            'data' => $expense
+        ], 200);
+    }
+
+    // Mettre à jour le statut (PATCH)
+    public function update(Request $request, $id)
+    {
+        $expense = Expense::find($id);
+
+        if (!$expense) {
+            return response()->json(['message' => 'Note de frais introuvable.'], 404);
+        }
+
+        $validated = $request->validate([
+            'statut' => 'required|in:En attente,Approuvée,Rejetée,Remboursée',
+            'motif_rejet' => 'nullable|string',
+        ]);
+
+        $expense->update($validated);
+
+        return response()->json([
+            'message' => 'Note de frais mise à jour.',
+            'data' => $expense
+        ], 200);
+    }
+
+    // Supprimer une note de frais
+    public function destroy($id)
+    {
+        $expense = Expense::find($id);
+
+        if (!$expense) {
+            return response()->json(['message' => 'Note de frais introuvable.'], 404);
+        }
+
+        // Supprimer le fichier justificatif
+        if ($expense->justificatif) {
+            Storage::disk('public')->delete($expense->justificatif);
+        }
+
+        $expense->delete();
+
+        return response()->json(['message' => 'Note de frais supprimée.'], 200);
+    }
+}

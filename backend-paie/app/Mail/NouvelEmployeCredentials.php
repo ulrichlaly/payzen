@@ -23,7 +23,7 @@ class NouvelEmployeCredentials extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Bienvenue chez Admin+ - Vos identifiants de connexion',
+            subject: 'Bienvenue chez RAYNIS - Vos identifiants de connexion PAYZEN',
         );
     }
 

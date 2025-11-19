@@ -14,12 +14,33 @@ class Collaborator extends Model
         'matricule',
         'date_naissance',
         'email',
+        'telephone',
         'adresse',
         'genre',
         'date_embauche',
         'salaire_base',
         'poste',
+        'departement',
         'statut',
+        'situation_familiale',
+        'nombre_enfants',
+        'type_contrat',
+        'duree_contrat',
+        'date_fin_contrat',
+        'heures_travail',
+        'jours_conges',
+        'iban',
+        'notes_parcours',
+    ];
+
+    protected $casts = [
+        'salaire_base' => 'decimal:2',
+        'heures_travail' => 'decimal:2',
+        'nombre_enfants' => 'integer',
+        'jours_conges' => 'integer',
+        'date_embauche' => 'date',
+        'date_naissance' => 'date',
+        'date_fin_contrat' => 'date',
     ];
 
     /**
@@ -34,8 +55,19 @@ class Collaborator extends Model
     {
         return $this->hasMany(Paie::class);
     }
+
     public function role()
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function expenses()
+    {
+        return $this->hasMany(Expense::class);
+    }
+
+    public function loans()
+    {
+        return $this->hasMany(Loan::class);
     }
 }

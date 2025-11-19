@@ -10,7 +10,7 @@ class PaieController extends Controller
 
     public function index()
     {
-        $paies = Paie::with('collaborator')->get();
+        $paies = Paie::with('collaborator.user')->get();
         return response()->json($paies, 200);
     }
 

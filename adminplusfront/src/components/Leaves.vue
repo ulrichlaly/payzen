@@ -319,6 +319,21 @@
     <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
       <div class="flex items-center justify-between mb-6">
         <h3 class="text-lg font-bold text-gray-900">Historique des congés</h3>
+        <div class="flex items-center gap-3">
+          <select v-model="filters.historyType" class="input-field w-auto">
+            <option value="">Tous les types</option>
+            <option value="annuel">Congé annuel</option>
+            <option value="maladie">Congé maladie</option>
+            <option value="maternité">Congé maternité</option>
+            <option value="autre">Autre</option>
+          </select>
+          <select v-model="filters.historyStatus" class="input-field w-auto">
+            <option value="">Tous les statuts</option>
+            <option value="en_attente">En attente</option>
+            <option value="approuvé">Approuvé</option>
+            <option value="refusé">Refusé</option>
+          </select>
+        </div>
       </div>
 
       <div class="overflow-x-auto">
@@ -463,6 +478,8 @@ const successMessage = ref("");
 
 const filters = ref({
   type: "",
+  historyType: "",
+  historyStatus: "",
 });
 
 const stats = computed(() => {
@@ -472,7 +489,6 @@ const stats = computed(() => {
   const approuvees = conges.value.filter((c) => c.statut === "approuvé").length;
   const refusees = conges.value.filter((c) => c.statut === "refusé").length;
 
-  // Calculer les congés en cours (date actuelle entre date_debut et date_fin)
   const today = new Date();
   const enCours = conges.value.filter((c) => {
     if (c.statut !== "approuvé") return false;
@@ -493,10 +509,17 @@ const pendingRequests = computed(() =>
 );
 
 const allConges = computed(() => {
-  if (filters.value.type) {
-    return conges.value.filter((c) => c.type === filters.value.type);
+  let filtered = conges.value;
+
+  if (filters.value.historyType) {
+    filtered = filtered.filter((c) => c.type === filters.value.historyType);
   }
-  return conges.value;
+
+  if (filters.value.historyStatus) {
+    filtered = filtered.filter((c) => c.statut === filters.value.historyStatus);
+  }
+
+  return filtered;
 });
 
 onMounted(() => {
@@ -511,26 +534,59 @@ const loadConges = async () => {
       ? response.data
       : response.data.data || [];
 
+    console.log("📦 Données brutes reçues:", data);
+
     conges.value = data.map((c: any) => {
+      console.log("🔍 Congé individuel:", c);
+
       const collaborator = c.collaborator || {};
       const user = collaborator.user || {};
 
-      // Logique améliorée pour récupérer le nom
-      let nom = "Collaborateur inconnu";
-      if (user.fullname) {
-        nom = user.fullname;
-      } else if (collaborator.nom_complet) {
-        nom = collaborator.nom_complet;
-      } else if (user.name) {
-        nom = user.name;
+      console.log("👤 Collaborator:", collaborator);
+      console.log("👤 User:", user);
+
+      // ✅ Chercher le nom avec ordre de priorité
+      let nom = "";
+      if (
+        user.fullname &&
+        typeof user.fullname === "string" &&
+        user.fullname.trim()
+      ) {
+        nom = user.fullname.trim();
+      } else if (
+        user.name &&
+        typeof user.name === "string" &&
+        user.name.trim()
+      ) {
+        nom = user.name.trim();
+      } else if (collaborator.prenom || collaborator.nom) {
+        const prenom = collaborator.prenom ? collaborator.prenom.trim() : "";
+        const nomFamille = collaborator.nom ? collaborator.nom.trim() : "";
+        nom = `${prenom} ${nomFamille}`.trim();
+      } else if (
+        collaborator.nom_complet &&
+        typeof collaborator.nom_complet === "string" &&
+        collaborator.nom_complet.trim()
+      ) {
+        nom = collaborator.nom_complet.trim();
+      } else {
+        nom = "";
       }
 
-      // Logique améliorée pour récupérer l'email
-      let email = "Email non disponible";
-      if (user.email) {
-        email = user.email;
-      } else if (collaborator.email) {
-        email = collaborator.email;
+      console.log("✅ Nom final:", nom);
+
+      // ✅ Chercher l'email
+      let email = "";
+      if (user.email && typeof user.email === "string" && user.email.trim()) {
+        email = user.email.trim();
+      } else if (
+        collaborator.email &&
+        typeof collaborator.email === "string" &&
+        collaborator.email.trim()
+      ) {
+        email = collaborator.email.trim();
+      } else {
+        email = "Email non disponible";
       }
 
       return {
@@ -553,8 +609,10 @@ const loadConges = async () => {
         statusClass: getStatusClass(c.statut),
       };
     });
+
+    console.log("✅ Congés transformés:", conges.value);
   } catch (error) {
-    console.error("Erreur chargement congés:", error);
+    console.error("❌ Erreur chargement congés:", error);
   } finally {
     loading.value = false;
   }
@@ -613,13 +671,14 @@ const rejectConge = async (conge: Conge) => {
 };
 
 const getInitials = (name: string) => {
-  if (!name || name === "Collaborateur inconnu") return "??";
-  const parts = name.split(" ");
+  const parts = name.split(" ").filter((p) => p.length > 0);
+  if (parts.length === 0) return "??";
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
   return parts
+    .slice(0, 2)
     .map((p) => p[0])
     .join("")
-    .toUpperCase()
-    .slice(0, 2);
+    .toUpperCase();
 };
 
 const getRandomColor = () => {

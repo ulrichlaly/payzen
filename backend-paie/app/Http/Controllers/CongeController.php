@@ -14,7 +14,7 @@ class CongeController extends Controller
 {
     public function index()
     {
-        $conges = Conge::with('collaborator')->get();
+        $conges = Conge::with('collaborator.user')->get();
         return response()->json($conges, 200);
     }
 

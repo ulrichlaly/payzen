@@ -5,30 +5,28 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Paie extends Model
+class Expense extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'collaborator_id',
-        'mois',
-        'annee',
-        'salaire_base',
-        'prime',
-        'indemnite',
-        'retenue',
-        'deduction_pret',
-        'net_a_payer',
-        'commentaire'
+        'categorie',
+        'montant',
+        'date',
+        'description',
+        'justificatif',
+        'statut',
+        'motif_rejet',
     ];
 
+    protected $casts = [
+        'date' => 'date',
+        'montant' => 'decimal:2',
+    ];
 
     public function collaborator()
     {
         return $this->belongsTo(Collaborator::class);
-    }
-    public function declarations()
-    {
-        return $this->hasMany(Declaration::class);
     }
 }

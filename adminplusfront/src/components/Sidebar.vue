@@ -11,12 +11,6 @@
             class="w-full h-full object-contain"
           />
         </div>
-        <!-- <div>
-          <h1 class="text-xl font-bold text-gray-900">
-            Admin<span class="text-blue-600">+</span>
-          </h1>
-          <p class="text-xs text-gray-500">Bénin RH</p>
-        </div> -->
       </div>
     </div>
 
@@ -85,6 +79,7 @@
 import { computed, h } from "vue";
 import { useAuthStore } from "../stores/auth";
 import { useRouter } from "vue-router";
+import Swal from "sweetalert2";
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -179,6 +174,26 @@ const BulletinIcon = () =>
     }),
   ]);
 
+const ExpenseIcon = () =>
+  h("svg", { fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, [
+    h("path", {
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      "stroke-width": "2",
+      d: "M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z",
+    }),
+  ]);
+
+const LoanIcon = () =>
+  h("svg", { fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, [
+    h("path", {
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      "stroke-width": "2",
+      d: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+    }),
+  ]);
+
 const navigationItems = computed(() => {
   const role = user?.role;
 
@@ -201,6 +216,16 @@ const navigationItems = computed(() => {
         icon: DeclarationIcon,
       },
       {
+        path: "/dashboard/expenses",
+        label: "Notes de frais",
+        icon: ExpenseIcon,
+      },
+      {
+        path: "/dashboard/loans",
+        label: "Prêts et avances",
+        icon: LoanIcon,
+      },
+      {
         path: "/dashboard/leaves",
         label: "Congés et absences",
         icon: LeaveIcon,
@@ -221,6 +246,16 @@ const navigationItems = computed(() => {
         label: "Déclarations",
         icon: DeclarationIcon,
       },
+      {
+        path: "/dashboard/expenses",
+        label: "Notes de frais",
+        icon: ExpenseIcon,
+      },
+      {
+        path: "/dashboard/loans",
+        label: "Prêts et avances",
+        icon: LoanIcon,
+      },
       { path: "/dashboard/leaves", label: "Congés", icon: LeaveIcon },
     ];
   }
@@ -232,17 +267,76 @@ const navigationItems = computed(() => {
       label: "Mes bulletins",
       icon: BulletinIcon,
     },
+    {
+      path: "/dashboard/my-expenses",
+      label: "Mes notes de frais",
+      icon: ExpenseIcon,
+    },
+    {
+      path: "/dashboard/my-loans",
+      label: "Mes avances",
+      icon: LoanIcon,
+    },
     { path: "/dashboard/my-leaves", label: "Mes congés", icon: LeaveIcon },
     { path: "/dashboard/profile", label: "Mon profil", icon: ProfileIcon },
+    // Routes Notes de frais
+    {
+      path: "expenses",
+      name: "expenses",
+      component: () => import("./Expenses.vue"),
+      meta: { roles: ["Admin", "Administrateur", "Comptable"] },
+    },
+    {
+      path: "my-expenses",
+      name: "my-expenses",
+      component: () => import("./MyExpenses.vue"),
+      meta: { roles: ["Collaborateur"] },
+    },
+
+    // Routes Prêts et avances
+    // {
+    //   path: "loans",
+    //   name: "loans",
+    //   component: () => import("./Loans.vue"),
+    //   meta: { roles: ["Admin", "Administrateur", "Comptable"] },
+    // },
+    // {
+    //   path: "my-loans",
+    //   name: "my-loans",
+    //   component: () => import("./MyLoans.vue"),
+    //   meta: { roles: ["Collaborateur"] },
+    // },
   ];
 });
 
 const logout = async () => {
-  if (confirm("Êtes-vous sûr de vouloir vous déconnecter ?")) {
+  const result = await Swal.fire({
+    title: "Déconnexion",
+    text: "Êtes-vous sûr de vouloir vous déconnecter ?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#dc2626",
+    cancelButtonColor: "#6b7280",
+    confirmButtonText: "Oui, me déconnecter",
+    cancelButtonText: "Annuler",
+  });
+
+  if (result.isConfirmed) {
     try {
       await authStore.logout();
-      await router.push("/login");
-      window.location.href = "/login";
+
+      Swal.fire({
+        title: "Déconnecté !",
+        text: "Vous avez été déconnecté avec succès",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
+      setTimeout(async () => {
+        await router.push("/login");
+        window.location.href = "/login";
+      }, 1500);
     } catch (error) {
       console.error("Erreur déconnexion:", error);
       localStorage.clear();
@@ -257,12 +351,10 @@ const logout = async () => {
   @apply flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg transition-colors font-medium hover:bg-gray-100 hover:text-gray-900;
 }
 
-/* Couleur pour l’élément actif */
 .nav-item-active {
   @apply bg-blue-600 text-white font-semibold;
 }
 
-/* Empêche le hover de changer la couleur sur l’élément actif */
 .nav-item-active:hover {
   @apply bg-blue-600 text-white;
 }

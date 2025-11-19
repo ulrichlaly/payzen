@@ -41,4 +41,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Declaration::class);
     }
+
+    public function collaborator()
+    {
+        return $this->hasOne(Collaborator::class);
+    }
 }

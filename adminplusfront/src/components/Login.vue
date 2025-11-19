@@ -224,6 +224,7 @@ const handleLogin = async () => {
       console.log('Rôle de l\'utilisateur:', userRole);
       
       const dashboardRoute = getRoleDashboard(userRole);
+      // const dashboardRoute = "/comptable/dashboard";
       console.log('Redirection vers:', dashboardRoute);
       
       await router.replace(dashboardRoute);

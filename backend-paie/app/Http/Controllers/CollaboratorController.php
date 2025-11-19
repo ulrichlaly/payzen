@@ -36,11 +36,23 @@ class CollaboratorController extends Controller
                         'nom_complet' => $collaborator->user->fullname ?? 'N/A',
                         'email' => $collaborator->email,
                         'poste' => $collaborator->poste,
-                        'telephone' => $collaborator->user->tel ?? 'N/A',
+                        'telephone' => $collaborator->telephone ?? $collaborator->user->tel ?? 'N/A',
                         'salaire_base' => number_format($collaborator->salaire_base, 0, ',', ' ') . ' FCFA',
                         'statut' => $collaborator->statut,
                         'matricule' => $collaborator->matricule,
                         'date_embauche' => $collaborator->date_embauche,
+                        'date_naissance' => $collaborator->date_naissance,
+                        'departement' => $collaborator->departement,
+                        'genre' => $collaborator->genre,
+                        'adresse' => $collaborator->adresse,
+                        'situation_familiale' => $collaborator->situation_familiale,
+                        'nombre_enfants' => $collaborator->nombre_enfants,
+                        'type_contrat' => $collaborator->type_contrat,
+                        'duree_contrat' => $collaborator->duree_contrat,
+                        'date_fin_contrat' => $collaborator->date_fin_contrat,
+                        'heures_travail' => $collaborator->heures_travail,
+                        'jours_conges' => $collaborator->jours_conges,
+                        'iban' => $collaborator->iban,
                     ];
                 });
 
@@ -65,11 +77,23 @@ class CollaboratorController extends Controller
                     'nom_complet' => $collaborator->user->fullname ?? 'N/A',
                     'email' => $collaborator->email,
                     'poste' => $collaborator->poste,
-                    'telephone' => $collaborator->user->tel ?? 'N/A',
+                    'telephone' => $collaborator->telephone ?? $collaborator->user->tel ?? 'N/A',
                     'salaire_base' => number_format($collaborator->salaire_base, 0, ',', ' ') . ' FCFA',
                     'statut' => $collaborator->statut,
                     'matricule' => $collaborator->matricule,
                     'date_embauche' => $collaborator->date_embauche,
+                    'date_naissance' => $collaborator->date_naissance,
+                    'departement' => $collaborator->departement,
+                    'genre' => $collaborator->genre,
+                    'adresse' => $collaborator->adresse,
+                    'situation_familiale' => $collaborator->situation_familiale,
+                    'nombre_enfants' => $collaborator->nombre_enfants,
+                    'type_contrat' => $collaborator->type_contrat,
+                    'duree_contrat' => $collaborator->duree_contrat,
+                    'date_fin_contrat' => $collaborator->date_fin_contrat,
+                    'heures_travail' => $collaborator->heures_travail,
+                    'jours_conges' => $collaborator->jours_conges,
+                    'iban' => $collaborator->iban,
                 ]
             ]);
         } catch (\Exception $e) {
@@ -95,6 +119,16 @@ class CollaboratorController extends Controller
             'date_naissance' => 'nullable|date',
             'genre' => 'nullable|in:M,F',
             'adresse' => 'nullable|string',
+            'departement' => 'nullable|string|max:255',
+            'situation_familiale' => 'nullable|string|max:50',
+            'nombre_enfants' => 'nullable|integer|min:0',
+            'type_contrat' => 'nullable|string|max:50',
+            'duree_contrat' => 'nullable|string|max:100',
+            'date_fin_contrat' => 'nullable|date',
+            'heures_travail' => 'nullable|numeric|min:0',
+            'jours_conges' => 'nullable|integer|min:0',
+            'iban' => 'nullable|string|max:34',
+            'notes_parcours' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -121,7 +155,7 @@ class CollaboratorController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($defaultPassword),
                 'tel' => $request->telephone,
-                'role_id' => $roleId, // ✅ CORRECTION: Ajout du role_id
+                'role_id' => $roleId,
             ]);
 
             // Assigner aussi le rôle via la table pivot (pour la relation Many-to-Many)
@@ -135,23 +169,33 @@ class CollaboratorController extends Controller
             $prenom = $nameParts[0];
             $nom = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : $nameParts[0];
 
-            // Créer le collaborateur
+            // Créer le collaborateur avec TOUS les nouveaux champs
             $collaborator = Collaborator::create([
                 'user_id' => $user->id,
                 'matricule' => $matricule,
                 'nom' => $nom,
                 'prenom' => $prenom,
                 'email' => $request->email,
-                'tel' => $request->telephone,
+                'telephone' => $request->telephone,
                 'date_naissance' => $request->date_naissance,
                 'genre' => $request->genre,
                 'adresse' => $request->adresse,
                 'poste' => $request->poste,
-                'departement' => 'Administration',
+                'departement' => $request->departement ?? 'Administration',
                 'salaire_base' => $request->salaire_base,
                 'date_embauche' => $request->date_embauche,
-                'type_contrat' => 'CDI',
                 'statut' => 'actif',
+
+                // Nouveaux champs
+                'situation_familiale' => $request->situation_familiale,
+                'nombre_enfants' => $request->nombre_enfants ?? 0,
+                'type_contrat' => $request->type_contrat ?? 'CDI',
+                'duree_contrat' => $request->duree_contrat,
+                'date_fin_contrat' => $request->date_fin_contrat,
+                'heures_travail' => $request->heures_travail ?? 40,
+                'jours_conges' => $request->jours_conges ?? 30,
+                'iban' => $request->iban,
+                'notes_parcours' => $request->notes_parcours,
             ]);
 
             // Envoi de l'email avec les identifiants
@@ -226,6 +270,16 @@ class CollaboratorController extends Controller
             'date_naissance' => 'nullable|date',
             'genre' => 'nullable|in:M,F',
             'adresse' => 'nullable|string',
+            'departement' => 'nullable|string|max:255',
+            'situation_familiale' => 'nullable|string|max:50',
+            'nombre_enfants' => 'nullable|integer|min:0',
+            'type_contrat' => 'nullable|string|max:50',
+            'duree_contrat' => 'nullable|string|max:100',
+            'date_fin_contrat' => 'nullable|date',
+            'heures_travail' => 'nullable|numeric|min:0',
+            'jours_conges' => 'nullable|integer|min:0',
+            'iban' => 'nullable|string|max:34',
+            'notes_parcours' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -238,7 +292,19 @@ class CollaboratorController extends Controller
                 'date_naissance' => $request->date_naissance ?? $collaborator->date_naissance,
                 'genre' => $request->genre ?? $collaborator->genre,
                 'adresse' => $request->adresse ?? $collaborator->adresse,
-                'tel' => $request->telephone ?? $collaborator->tel,
+                'telephone' => $request->telephone ?? $collaborator->telephone,
+                'departement' => $request->departement ?? $collaborator->departement,
+
+                // Nouveaux champs
+                'situation_familiale' => $request->situation_familiale ?? $collaborator->situation_familiale,
+                'nombre_enfants' => $request->nombre_enfants ?? $collaborator->nombre_enfants,
+                'type_contrat' => $request->type_contrat ?? $collaborator->type_contrat,
+                'duree_contrat' => $request->duree_contrat ?? $collaborator->duree_contrat,
+                'date_fin_contrat' => $request->date_fin_contrat ?? $collaborator->date_fin_contrat,
+                'heures_travail' => $request->heures_travail ?? $collaborator->heures_travail,
+                'jours_conges' => $request->jours_conges ?? $collaborator->jours_conges,
+                'iban' => $request->iban ?? $collaborator->iban,
+                'notes_parcours' => $request->notes_parcours ?? $collaborator->notes_parcours,
             ]);
 
             if ($request->has('fullname') || $request->has('telephone')) {
@@ -322,7 +388,7 @@ class CollaboratorController extends Controller
                 'date_naissance' => $request->date_naissance ?? $collaborator->date_naissance,
                 'genre' => $request->genre ?? $collaborator->genre,
                 'adresse' => $request->adresse ?? $collaborator->adresse,
-                'tel' => $request->telephone ?? $collaborator->tel,
+                'telephone' => $request->telephone ?? $collaborator->telephone,
             ]);
 
             DB::commit();

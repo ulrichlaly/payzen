@@ -66,6 +66,30 @@ const routes = [
         name: 'profile',
         component: () => import('../components/Profile.vue')
       },
+      {
+  path: 'expenses',
+  name: 'expenses',
+  component: () => import('../components/Expenses.vue'),
+  meta: { roles: ['Admin', 'Administrateur', 'Comptable'] }
+},
+{
+  path: 'my-expenses',
+  name: 'my-expenses',
+  component: () => import('../components/MyExpenses.vue'),
+  meta: { roles: ['Collaborateur'] }
+},
+{
+  path: 'loans',
+  name: 'loans',
+  component: () => import('../components/Loans.vue'),
+  meta: { roles: ['Admin', 'Administrateur', 'Comptable'] }
+},
+{
+  path: 'my-loans',
+  name: 'my-loans',
+  component: () => import('../components/MyLoans.vue'),
+  meta: { roles: ['Collaborateur'] }
+},
     ]
   },
 ];
