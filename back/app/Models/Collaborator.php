@@ -12,6 +12,7 @@ class Collaborator extends Model
     protected $fillable = [
         'user_id',
         'matricule',
+        'photo_url',
         'date_naissance',
         'email',
         'telephone',
@@ -69,5 +70,10 @@ class Collaborator extends Model
     public function loans()
     {
         return $this->hasMany(Loan::class);
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(Document::class);
     }
 }

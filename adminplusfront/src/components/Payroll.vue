@@ -670,7 +670,6 @@ const sendEmail = async (paie: Paie) => {
 
   if (result.isConfirmed) {
     try {
-      // Simuler l'envoi d'email - remplacer par votre API
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       await Swal.fire({

@@ -226,7 +226,6 @@ const getStatutClass = (statut: string) => {
 
 <template>
   <div class="space-y-6 p-6">
-    <!-- Message d'erreur si profil manquant -->
     <div v-if="error" class="max-w-4xl mx-auto">
       <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
         <div class="flex items-start gap-4">
@@ -253,9 +252,7 @@ const getStatutClass = (statut: string) => {
       </div>
     </div>
 
-    <!-- Contenu principal du dashboard -->
     <div v-else>
-      <!-- Header avec informations utilisateur -->
       <div
         class="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl p-8 mb-4 text-white shadow-xl"
       >
@@ -282,9 +279,7 @@ const getStatutClass = (statut: string) => {
         </div>
       </div>
 
-      <!-- Statistiques -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Solde congés -->
         <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <div class="flex items-center justify-between mb-4">
             <div

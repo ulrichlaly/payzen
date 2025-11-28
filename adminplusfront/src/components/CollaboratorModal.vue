@@ -402,6 +402,68 @@
                   />
                 </div>
               </div>
+
+              <!-- 📄 NOUVEAU : Upload du contrat -->
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Contrat de travail (PDF, DOC, DOCX)
+                </label>
+                <div class="flex items-center gap-3">
+                  <label
+                    class="flex-1 flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-colors"
+                  >
+                    <svg
+                      class="w-6 h-6 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    <span class="text-sm text-gray-600">
+                      {{ contratFileName || "Choisir un fichier" }}
+                    </span>
+                    <input
+                      ref="contratInput"
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      @change="handleContratChange"
+                      class="hidden"
+                    />
+                  </label>
+
+                  <!-- Bouton pour retirer le fichier -->
+                  <button
+                    v-if="contratFile"
+                    type="button"
+                    @click="removeContrat"
+                    class="px-4 py-3 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                    title="Retirer le fichier"
+                  >
+                    <svg
+                      class="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                  Formats acceptés : PDF, DOC, DOCX (max 10MB)
+                </p>
+              </div>
             </div>
           </div>
 
@@ -479,8 +541,8 @@
                   <li>Son matricule unique</li>
                 </ul>
                 <p class="text-xs text-blue-600 mt-2">
-                  💡 Vous pourrez ajouter les formations, équipements et
-                  entretiens après la création
+                  💡 Le contrat sera téléchargé après la création du
+                  collaborateur
                 </p>
               </div>
             </div>
@@ -557,9 +619,9 @@
     </div>
   </Transition>
 </template>
-
 <script setup lang="ts">
 import { ref, watch, computed } from "vue";
+import api from "../services/api/axios";
 
 interface Props {
   show: boolean;
@@ -571,6 +633,11 @@ const emit = defineEmits(["close", "submit"]);
 
 const loading = ref(false);
 const error = ref("");
+
+// 📄 Gestion du fichier contrat
+const contratFile = ref<File | null>(null);
+const contratFileName = ref("");
+const contratInput = ref<HTMLInputElement | null>(null);
 
 const isEdit = computed(() => !!props.collaborator);
 
@@ -609,6 +676,9 @@ watch(
   (newVal) => {
     if (newVal) {
       error.value = "";
+      contratFile.value = null;
+      contratFileName.value = "";
+
       if (props.collaborator) {
         formData.value = {
           // Informations de base
@@ -651,12 +721,130 @@ watch(
           // Notes
           notes_parcours: "",
         };
+      } else {
+        // Réinitialiser le formulaire pour un nouveau collaborateur
+        formData.value = {
+          fullname: "",
+          email: "",
+          telephone: "",
+          poste: "",
+          departement: "",
+          date_embauche: new Date().toISOString().split("T")[0],
+          statut: "actif",
+          salaire_base: 0,
+          date_naissance: "",
+          genre: "",
+          situation_familiale: "",
+          nombre_enfants: 0,
+          adresse: "",
+          type_contrat: "",
+          duree_contrat: "",
+          date_fin_contrat: "",
+          heures_travail: 40,
+          jours_conges: 30,
+          iban: "",
+          notes_parcours: "",
+        };
       }
     }
   }
 );
 
-const handleSubmit = () => {
+// 📄 Gérer la sélection du fichier contrat
+const handleContratChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+
+  if (!file) return;
+
+  // Vérifier le type de fichier
+  const allowedTypes = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ];
+
+  if (!allowedTypes.includes(file.type)) {
+    error.value = "Format de fichier non accepté. Utilisez PDF, DOC ou DOCX.";
+    if (contratInput.value) contratInput.value.value = "";
+    return;
+  }
+
+  // Vérifier la taille (10MB max)
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) {
+    error.value = "Le fichier est trop volumineux (max 10MB).";
+    if (contratInput.value) contratInput.value.value = "";
+    return;
+  }
+
+  contratFile.value = file;
+  contratFileName.value = file.name;
+  error.value = "";
+};
+
+// 📄 Retirer le fichier sélectionné
+const removeContrat = () => {
+  contratFile.value = null;
+  contratFileName.value = "";
+  if (contratInput.value) {
+    contratInput.value.value = "";
+  }
+};
+
+// 📄 Upload du contrat
+const uploadContrat = async (collaboratorId: number) => {
+  if (!contratFile.value) {
+    console.log("❌ Pas de fichier à uploader");
+    return null;
+  }
+
+  console.log("🚀 Début upload contrat", {
+    collaboratorId,
+    fileName: contratFile.value.name,
+    fileSize: contratFile.value.size,
+    fileType: contratFile.value.type,
+  });
+
+  try {
+    const formDataUpload = new FormData();
+    formDataUpload.append("document", contratFile.value);
+    formDataUpload.append("type", "contract");
+    formDataUpload.append("description", "Contrat de travail");
+
+    console.log("📤 Envoi vers:", `/collaborators/${collaboratorId}/documents`);
+
+    // Log du contenu du FormData
+    for (let pair of formDataUpload.entries()) {
+      console.log("FormData:", pair[0], pair[1]);
+    }
+
+    const response = await api.post(
+      `/collaborators/${collaboratorId}/documents`,
+      formDataUpload,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    console.log("✅ Upload réussi:", response.data);
+    return response.data;
+  } catch (err: any) {
+    console.error("❌ Erreur upload contrat:", {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status,
+      url: err.config?.url,
+    });
+    throw new Error(
+      err.response?.data?.message || "Erreur lors de l'upload du contrat"
+    );
+  }
+};
+
+const handleSubmit = async () => {
   error.value = "";
 
   // Validation des champs obligatoires
@@ -683,24 +871,42 @@ const handleSubmit = () => {
 
   loading.value = true;
 
-  const submitData = {
-    ...formData.value,
-    isEdit: isEdit.value,
-  };
+  try {
+    const submitData = {
+      ...formData.value,
+      isEdit: isEdit.value,
+      hasContrat: !!contratFile.value,
+    };
 
-  emit("submit", submitData);
-
-  setTimeout(() => {
+    // Émettre l'événement de soumission avec callback pour upload
+    emit("submit", submitData, async (collaboratorId: number) => {
+      // Upload du contrat si présent
+      if (contratFile.value && collaboratorId) {
+        try {
+          await uploadContrat(collaboratorId);
+        } catch (uploadError: any) {
+          throw uploadError;
+        }
+      }
+    });
+  } catch (err: any) {
+    error.value = err.response?.data?.message || "Erreur lors de la soumission";
     loading.value = false;
-  }, 2000);
+  }
 };
-</script>
 
+// Exposer les fonctions
+defineExpose({
+  uploadContrat,
+  contratFile,
+});
+</script>
 <style scoped>
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.2s;
 }
+
 .modal-enter-from,
 .modal-leave-to {
   opacity: 0;

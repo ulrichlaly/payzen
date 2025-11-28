@@ -1,5 +1,4 @@
 <?php
-
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,13 +11,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Déclaration des alias de middleware
+        // Ajouter le middleware CORS pour les routes API
+        $middleware->api(prepend: [
+            \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
+        
+        $middleware->api(prepend: [
+            \App\Http\Middleware\Cors::class,
+        ]);
+       // $middleware->append(\App\Http\Middleware\ForceHttps::class);
+        
         $middleware->alias([
             'auth' => \App\Http\Middleware\Authenticate::class,
             'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
-        //
-    })->create();
+    ->withExceptions(function (Exceptions $exceptions): void {})->create();

@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Collaborator;
 use App\Models\User;
+use App\Models\ParcoursProfessionnel;
+use App\Models\EntretienAnnuel;
+use App\Models\Formation;
+use App\Models\Equipement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -18,16 +22,13 @@ class CollaboratorController extends Controller
         try {
             $user = auth()->user();
 
-            // Charger les rôles de l'utilisateur
             $user->load('roles');
             $userRoles = $user->roles->pluck('name')->toArray();
 
-            // Vérifier si c'est un admin
             $isAdmin = in_array('Admin', $userRoles) ||
                 in_array('Administrateur', $userRoles) ||
                 in_array('Admin Général', $userRoles);
 
-            // Si l'utilisateur est admin, retourner tous les collaborateurs
             if ($isAdmin) {
                 $collaborators = Collaborator::with('user')->get()->map(function ($collaborator) {
                     return [
@@ -39,6 +40,7 @@ class CollaboratorController extends Controller
                         'telephone' => $collaborator->telephone ?? $collaborator->user->tel ?? 'N/A',
                         'salaire_base' => number_format($collaborator->salaire_base, 0, ',', ' ') . ' FCFA',
                         'statut' => $collaborator->statut,
+                        'photo_url' => $collaborator->photo_url,
                         'matricule' => $collaborator->matricule,
                         'date_embauche' => $collaborator->date_embauche,
                         'date_naissance' => $collaborator->date_naissance,
@@ -59,7 +61,6 @@ class CollaboratorController extends Controller
                 return response()->json($collaborators);
             }
 
-            // Si c'est un collaborateur, retourner uniquement ses propres infos
             $collaborator = Collaborator::with('user')->where('user_id', $user->id)->first();
 
             if (!$collaborator) {
@@ -135,21 +136,17 @@ class CollaboratorController extends Controller
 
         try {
             $defaultPassword = 'Password123!';
-
-            // Récupérer l'ID du rôle "Collaborateur" depuis la base de données
             $collaboratorRole = \App\Models\Role::where('name', 'Collaborateur')
                 ->orWhere('name', 'Employé')
                 ->orWhere('name', 'Employee')
                 ->first();
 
             if (!$collaboratorRole) {
-                // Si le rôle n'existe pas, utiliser l'ID 4 par défaut
                 $roleId = 4;
             } else {
                 $roleId = $collaboratorRole->id;
             }
 
-            // Créer l'utilisateur avec role_id
             $user = User::create([
                 'fullname' => $request->fullname,
                 'email' => $request->email,
@@ -158,18 +155,35 @@ class CollaboratorController extends Controller
                 'role_id' => $roleId,
             ]);
 
-            // Assigner aussi le rôle via la table pivot (pour la relation Many-to-Many)
             $user->roles()->attach($roleId);
 
-            // Générer un matricule unique
-            $matricule = 'COL-' . str_pad(Collaborator::count() + 1, 4, '0', STR_PAD_LEFT);
+            $lastCollaborator = Collaborator::orderByRaw('CAST(SUBSTRING(matricule, 5) AS UNSIGNED) DESC')
+                ->first();
 
-            // Séparer le nom et prénom
+            if ($lastCollaborator && $lastCollaborator->matricule) {
+                $lastNumber = (int) substr($lastCollaborator->matricule, 4);
+                $nextNumber = $lastNumber + 1;
+            } else {
+                $nextNumber = 1;
+            }
+
+            $matricule = 'COL-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+
+            $attempts = 0;
+            while (Collaborator::where('matricule', $matricule)->exists() && $attempts < 100) {
+                $nextNumber++;
+                $matricule = 'COL-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+                $attempts++;
+            }
+
+            if ($attempts >= 100) {
+                throw new \Exception('Impossible de générer un matricule unique');
+            }
+
             $nameParts = explode(' ', $request->fullname);
             $prenom = $nameParts[0];
             $nom = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : $nameParts[0];
 
-            // Créer le collaborateur avec TOUS les nouveaux champs
             $collaborator = Collaborator::create([
                 'user_id' => $user->id,
                 'matricule' => $matricule,
@@ -185,8 +199,6 @@ class CollaboratorController extends Controller
                 'salaire_base' => $request->salaire_base,
                 'date_embauche' => $request->date_embauche,
                 'statut' => 'actif',
-
-                // Nouveaux champs
                 'situation_familiale' => $request->situation_familiale,
                 'nombre_enfants' => $request->nombre_enfants ?? 0,
                 'type_contrat' => $request->type_contrat ?? 'CDI',
@@ -198,7 +210,6 @@ class CollaboratorController extends Controller
                 'notes_parcours' => $request->notes_parcours,
             ]);
 
-            // Envoi de l'email avec les identifiants
             try {
                 Mail::to($user->email)->send(new NouvelEmployeCredentials(
                     $user,
@@ -207,13 +218,13 @@ class CollaboratorController extends Controller
                 ));
             } catch (\Exception $e) {
                 Log::error('Erreur envoi email: ' . $e->getMessage());
-                // On continue même si l'email échoue
             }
 
             DB::commit();
 
             return response()->json([
                 'message' => 'Employé créé avec succès. Un email a été envoyé avec les identifiants de connexion.',
+                'id' => $collaborator->id,
                 'collaborator' => $collaborator->load('user'),
             ], 201);
         } catch (\Exception $e) {
@@ -232,14 +243,12 @@ class CollaboratorController extends Controller
             $user = auth()->user();
             $collaborator = Collaborator::with('user')->findOrFail($id);
 
-            // Charger les rôles
             $user->load('roles');
             $userRoles = $user->roles->pluck('name')->toArray();
             $isAdmin = in_array('Admin', $userRoles) ||
                 in_array('Administrateur', $userRoles) ||
                 in_array('Admin Général', $userRoles);
 
-            // Vérifier les permissions
             if (!$isAdmin && $collaborator->user_id !== $user->id) {
                 return response()->json([
                     'message' => 'Vous ne pouvez consulter que vos propres informations'
@@ -294,8 +303,6 @@ class CollaboratorController extends Controller
                 'adresse' => $request->adresse ?? $collaborator->adresse,
                 'telephone' => $request->telephone ?? $collaborator->telephone,
                 'departement' => $request->departement ?? $collaborator->departement,
-
-                // Nouveaux champs
                 'situation_familiale' => $request->situation_familiale ?? $collaborator->situation_familiale,
                 'nombre_enfants' => $request->nombre_enfants ?? $collaborator->nombre_enfants,
                 'type_contrat' => $request->type_contrat ?? $collaborator->type_contrat,
@@ -354,15 +361,10 @@ class CollaboratorController extends Controller
         }
     }
 
-    /**
-     * Méthode pour permettre aux collaborateurs de mettre à jour leur propre profil
-     */
     public function updateProfile(Request $request)
     {
         try {
             $user = auth()->user();
-
-            // Trouver le collaborateur
             $collaborator = Collaborator::where('user_id', $user->id)->firstOrFail();
 
             $request->validate([
@@ -375,7 +377,6 @@ class CollaboratorController extends Controller
 
             DB::beginTransaction();
 
-            // Mettre à jour l'utilisateur
             if ($request->has('fullname') || $request->has('telephone')) {
                 $user->update([
                     'fullname' => $request->fullname ?? $user->fullname,
@@ -383,7 +384,6 @@ class CollaboratorController extends Controller
                 ]);
             }
 
-            // Mettre à jour le collaborateur
             $collaborator->update([
                 'date_naissance' => $request->date_naissance ?? $collaborator->date_naissance,
                 'genre' => $request->genre ?? $collaborator->genre,
@@ -405,6 +405,163 @@ class CollaboratorController extends Controller
                 'message' => 'Erreur lors de la mise à jour du profil',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+
+    public function getParcours($id)
+    {
+        try {
+            $parcours = ParcoursProfessionnel::where('collaborator_id', $id)
+                ->orderBy('date_debut', 'desc')
+                ->get();
+
+            return response()->json($parcours);
+        } catch (\Exception $e) {
+            Log::error('Erreur getParcours: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function addParcours(Request $request, $id)
+    {
+        try {
+            $validated = $request->validate([
+                'type_mouvement' => 'required|string',
+                'date_debut' => 'required|date',
+                'poste' => 'required|string',
+                'departement' => 'required|string',
+                'date_fin' => 'nullable|date',
+                'notes' => 'nullable|string',
+            ]);
+
+            $validated['collaborator_id'] = $id;
+
+            $parcours = ParcoursProfessionnel::create($validated);
+
+            return response()->json($parcours, 201);
+        } catch (\Exception $e) {
+            Log::error('Erreur addParcours: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getEntretiens($id)
+    {
+        try {
+            $entretiens = EntretienAnnuel::where('collaborator_id', $id)
+                ->orderBy('date_entretien', 'desc')
+                ->get();
+
+            return response()->json($entretiens);
+        } catch (\Exception $e) {
+            Log::error('Erreur getEntretiens: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function addEntretien(Request $request, $id)
+    {
+        try {
+            $validated = $request->validate([
+                'date_entretien' => 'required|date',
+                'evaluateur' => 'required|string',
+                'objectifs_atteints' => 'required|integer|min:0|max:100',
+                'competences_techniques' => 'required|integer|min:0|max:100',
+                'competences_comportementales' => 'required|integer|min:0|max:100',
+                'points_forts' => 'required|string',
+                'axes_amelioration' => 'required|string',
+                'objectifs_futurs' => 'required|string',
+            ]);
+
+            $validated['collaborator_id'] = $id;
+
+            $entretien = EntretienAnnuel::create($validated);
+
+            return response()->json($entretien, 201);
+        } catch (\Exception $e) {
+            Log::error('Erreur addEntretien: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+
+    public function getFormations($id)
+    {
+        try {
+            $formations = Formation::where('collaborator_id', $id)
+                ->orderBy('date_debut', 'desc')
+                ->get();
+
+            return response()->json($formations);
+        } catch (\Exception $e) {
+            Log::error('Erreur getFormations: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function addFormation(Request $request, $id)
+    {
+        try {
+            $validated = $request->validate([
+                'titre' => 'required|string',
+                'organisme' => 'required|string',
+                'date_debut' => 'required|date',
+                'date_fin' => 'required|date',
+                'duree_heures' => 'required|integer',
+                'cout' => 'nullable|numeric',
+                'certification_obtenue' => 'boolean',
+                'notes' => 'nullable|string',
+            ]);
+
+            $validated['collaborator_id'] = $id;
+
+            $formation = Formation::create($validated);
+
+            return response()->json($formation, 201);
+        } catch (\Exception $e) {
+            Log::error('Erreur addFormation: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getEquipements($id)
+    {
+        try {
+            $equipements = Equipement::where('collaborator_id', $id)
+                ->orderBy('date_attribution', 'desc')
+                ->get();
+
+            return response()->json($equipements);
+        } catch (\Exception $e) {
+            Log::error('Erreur getEquipements: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function addEquipement(Request $request, $id)
+    {
+        try {
+            $validated = $request->validate([
+                'type_equipement' => 'required|string',
+                'marque' => 'required|string',
+                'modele' => 'required|string',
+                'numero_serie' => 'required|string',
+                'date_attribution' => 'required|date',
+                'etat' => 'required|string',
+                'date_retour' => 'nullable|date',
+                'valeur' => 'nullable|numeric',
+                'notes' => 'nullable|string',
+            ]);
+
+            $validated['collaborator_id'] = $id;
+
+            $equipement = Equipement::create($validated);
+
+            return response()->json($equipement, 201);
+        } catch (\Exception $e) {
+            Log::error('Erreur addEquipement: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 }

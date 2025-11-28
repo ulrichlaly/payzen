@@ -439,19 +439,24 @@ const loadExpenses = async () => {
       ? response.data
       : response.data.data || [];
 
-    expenses.value = data.map((e: any) => ({
-      id: e.id,
-      employeeName: e.collaborator?.nom_complet || "N/A",
-      initials: getInitials(e.collaborator?.nom_complet || "N/A"),
-      avatarColor: getRandomColor(),
-      categorie: e.categorie || "Autre",
-      date: e.date,
-      montant: parseFloat(e.montant || 0),
-      statut: e.statut || "En attente",
-      statusClass: getStatusClass(e.statut),
-      description: e.description,
-      justificatif: e.justificatif,
-    }));
+    expenses.value = data.map((e: any) => {
+      // ✅ Correction : récupérer le nom complet depuis la structure transformée
+      const nomComplet = e.collaborator?.nom_complet || "Collaborateur inconnu";
+
+      return {
+        id: e.id,
+        employeeName: nomComplet,
+        initials: getInitials(nomComplet),
+        avatarColor: getRandomColor(),
+        categorie: e.categorie || "Autre",
+        date: e.date,
+        montant: parseFloat(e.montant || 0),
+        statut: e.statut || "En attente",
+        statusClass: getStatusClass(e.statut),
+        description: e.description,
+        justificatif: e.justificatif,
+      };
+    });
   } catch (error) {
     console.error("Erreur chargement notes de frais:", error);
     Swal.fire({
@@ -598,7 +603,7 @@ const formatDate = (date: string) => {
 };
 
 const getInitials = (name: string) => {
-  if (!name || name === "N/A") return "NA";
+  if (!name || name === "N/A" || name === "Collaborateur inconnu") return "??";
   const parts = name.split(" ");
   return parts
     .map((p) => p[0])

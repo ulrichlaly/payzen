@@ -62,12 +62,10 @@ const loading = ref(true);
 
 onMounted(async () => {
   try {
-    // Restaurer l'utilisateur depuis localStorage si disponible
     if (!authStore.user) {
       authStore.restoreUser();
     }
     
-    // Si toujours pas d'utilisateur, le récupérer depuis l'API
     if (!authStore.user) {
       await authStore.fetchUser();
     }

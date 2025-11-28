@@ -445,26 +445,7 @@
                 v-if="expandedSections.parcours"
                 class="p-4 border-t border-gray-200"
               >
-                <button
-                  @click="openParcoursModal"
-                  class="mb-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
-                >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                  </svg>
-                  Ajouter un mouvement
-                </button>
-                <div class="space-y-3">
+                <div v-if="parcoursData.length > 0" class="space-y-3">
                   <div
                     v-for="parcours in parcoursData"
                     :key="parcours.id"
@@ -487,6 +468,107 @@
                       {{ parcours.departement }}
                     </p>
                   </div>
+                </div>
+                <div v-else class="text-center py-4 text-gray-500">
+                  Aucun mouvement enregistré par le collaborateur
+                </div>
+              </div>
+            </div>
+
+            <!-- Formations - LECTURE SEULE -->
+            <div class="border border-gray-200 rounded-lg">
+              <button
+                @click="toggleSection('formations')"
+                class="w-full flex items-center justify-between p-4 hover:bg-gray-50"
+              >
+                <div class="flex items-center gap-3">
+                  <svg
+                    class="w-5 h-5 text-indigo-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                    <path
+                      d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"
+                    />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222"
+                    />
+                  </svg>
+                  <span class="font-semibold text-gray-900">Formations</span>
+                  <span
+                    class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold"
+                  >
+                    {{ formationsData.length }}
+                  </span>
+                </div>
+                <svg
+                  class="w-5 h-5"
+                  :class="expandedSections.formations ? 'rotate-180' : ''"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+              <div
+                v-if="expandedSections.formations"
+                class="p-4 border-t border-gray-200"
+              >
+                <div v-if="formationsData.length > 0" class="space-y-3">
+                  <div
+                    v-for="formation in formationsData"
+                    :key="formation.id"
+                    class="p-4 bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div class="flex items-center gap-2 mb-2">
+                      <p class="font-semibold text-gray-900">
+                        {{ formation.titre }}
+                      </p>
+                      <span
+                        v-if="formation.certifie"
+                        class="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-semibold"
+                      >
+                        Certifié
+                      </span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-2">
+                      {{ formation.organisme }}
+                    </p>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                      <div>
+                        <p class="text-gray-500">Période</p>
+                        <p class="font-semibold text-gray-700">
+                          {{ formation.periode }}
+                        </p>
+                      </div>
+                      <div>
+                        <p class="text-gray-500">Durée</p>
+                        <p class="font-semibold text-gray-700">
+                          {{ formation.duree }}h
+                        </p>
+                      </div>
+                      <div>
+                        <p class="text-gray-500">Coût</p>
+                        <p class="font-semibold text-gray-700">
+                          {{ formation.cout }} FCFA
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="text-center py-4 text-gray-500">
+                  Aucune formation enregistrée par le collaborateur
                 </div>
               </div>
             </div>
@@ -595,7 +677,7 @@
               </div>
             </div>
 
-            <!-- Formations -->
+            <!-- Formations
             <div class="border border-gray-200 rounded-lg">
               <button
                 @click="toggleSection('formations')"
@@ -707,7 +789,7 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </div> -->
 
             <!-- Contrats -->
             <div class="border border-gray-200 rounded-lg">
@@ -1123,6 +1205,7 @@
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
+
             <div class="col-span-2">
               <label class="block text-sm font-semibold text-gray-700 mb-2"
                 >Compétences comportementales (%) *</label
@@ -1132,6 +1215,17 @@
                 min="0"
                 max="100"
                 v-model="entretienForm.competences_comportementales"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2"
+                >Notes RH</label
+              >
+              <input
+                type="number"
+                min="0"
+                max="100"
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
@@ -1780,15 +1874,53 @@ const closeModal = () => {
   selectedEmployeeForEdit.value = null;
 };
 
-const handleSubmit = async (data: any) => {
+const handleSubmit = async (data: any, uploadCallback?: Function) => {
+  console.log("🔵 handleSubmit appelé", {
+    data,
+    hasCallback: !!uploadCallback,
+    hasContrat: data.hasContrat,
+  });
+
   try {
+    let collaboratorId: number | undefined;
+
     if (data.isEdit && selectedEmployeeForEdit.value?.id) {
-      await api.put(`/collaborators/${selectedEmployeeForEdit.value.id}`, data);
+      // Préparer les données pour la mise à jour
+      const updateData = {
+        nom_complet: data.fullname,
+        email: data.email,
+        telephone: data.telephone || data.tel,
+        poste: data.poste,
+        salaire_base: data.salaire_base,
+        date_embauche: data.date_embauche,
+        date_naissance: data.date_naissance,
+        genre: data.genre,
+        adresse: data.adresse,
+        departement: data.departement,
+        situation_familiale: data.situation_familiale,
+        nombre_enfants: data.nombre_enfants,
+        type_contrat: data.type_contrat,
+        duree_contrat: data.duree_contrat,
+        date_fin_contrat: data.date_fin_contrat,
+        heures_travail: data.heures_travail,
+        jours_conges: data.jours_conges,
+        iban: data.iban,
+        statut: data.statut,
+      };
+
+      await api.put(
+        `/collaborators/${selectedEmployeeForEdit.value.id}`,
+        updateData
+      );
+      collaboratorId = selectedEmployeeForEdit.value.id;
       successMessage.value = "Employé modifié avec succès !";
+      console.log("✅ Employé modifié, ID:", collaboratorId);
     } else {
-      await api.post("/collaborators", data);
-      successMessage.value =
-        "Employé créé avec succès ! Un email a été envoyé avec ses identifiants.";
+      console.log("⚠️ Pas d'upload:", {
+        hasCallback: !!uploadCallback,
+        hasContrat: data.hasContrat,
+        hasCollaboratorId: !!collaboratorId,
+      });
     }
 
     await loadEmployees();
@@ -1798,7 +1930,7 @@ const handleSubmit = async (data: any) => {
       successMessage.value = "";
     }, 5000);
   } catch (error: any) {
-    console.error("Erreur:", error);
+    console.error("❌ Erreur handleSubmit:", error);
     alert(error.response?.data?.message || "Erreur lors de l'opération");
   }
 };
