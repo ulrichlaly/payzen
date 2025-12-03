@@ -76,7 +76,7 @@
 
 <body>
     <div class="header">
-        <h1>🎉 Bienvenue chez Admin+</h1>
+        <h1>Bienvenue chez Payzen by RAYNIS</h1>
         <p>République du Bénin</p>
     </div>
 
@@ -86,7 +86,7 @@
         <p>Nous sommes ravis de vous accueillir au sein de notre équipe en tant que
             <strong>{{ $collaborator->poste }}</strong>.</p>
 
-        <p>Votre compte a été créé avec succès. Voici vos identifiants de connexion à la plateforme Admin+ :</p>
+        <p>Votre compte a été créé avec succès. Voici vos identifiants de connexion à la plateforme Payzen :</p>
 
         <div class="credentials-box">
             <div class="credential-item">
@@ -111,18 +111,18 @@
         </p>
 
         <div style="text-align: center;">
-            <a href="http://localhost:5173/login" class="button">Se connecter à Admin+</a>
+            <a href="http://localhost:5173/login" class="button">Se connecter à Payzen</a>
         </div>
 
         <p>Si vous avez des questions ou besoin d'assistance, n'hésitez pas à contacter le service RH.</p>
 
         <p>Cordialement,<br>
-            <strong>L'équipe Admin+</strong>
+            <strong>L'équipe RAYNIS</strong>
         </p>
     </div>
 
     <div class="footer">
-        <p>© 2025 Admin+ Bénin. Tous droits réservés.</p>
+        <p>© 2025 Payzen Bénin. Tous droits réservés.</p>
         <p style="font-size: 12px; color: #9ca3af;">
             Cet email contient des informations confidentielles. Si vous l'avez reçu par erreur, veuillez le supprimer.
         </p>
