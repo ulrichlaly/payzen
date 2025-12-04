@@ -363,7 +363,8 @@
 
       <!-- Main Content Grid -->
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <!-- Vue d'ensemble -->
+
+              <!-- Vue d'ensemble -->
         <div class="bg-white rounded-2xl shadow-lg p-6">
           <h2
             class="text-2xl font-black text-gray-900 mb-6 flex items-center gap-3"
@@ -404,9 +405,9 @@
               <span class="text-sm font-semibold text-gray-700"
                 >Masse salariale mensuelle</span
               >
-              <span class="font-bold text-green-700">{{
-                stats.masseSalariale
-              }}</span>
+              <span class="font-bold text-green-700"
+                >{{stats.masseSalariale}}</span
+              >
             </div>
             <div
               class="flex items-center justify-between p-5 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl"
@@ -420,6 +421,7 @@
             </div>
           </div>
         </div>
+
 
         <div class="bg-white rounded-2xl shadow-lg p-6">
           <h2
@@ -440,6 +442,61 @@
                   stroke-width="2"
                   d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
                 />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
+                />
+              </svg>
+            </div>
+            Répartition des activités
+          </h2>
+
+          <!-- Canvas Chart.js -->
+          <div class="w-full h-[260px]">
+            <canvas id="pieChart"></canvas>
+          </div>
+
+          <!-- Légendes -->
+          <div class="grid grid-cols-2 gap-3 mt-4">
+            <div
+              v-for="(item, index) in pieData"
+              :key="index"
+              class="flex items-center gap-2"
+            >
+              <div
+                class="w-4 h-4 rounded"
+                :style="{ backgroundColor: item.color }"
+              ></div>
+              <span class="text-xs font-semibold text-gray-700">{{
+                item.name
+              }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notifications Panel (Slide-in) -->
+    <transition name="slide">
+      <div
+        v-if="showNotifications"
+        class="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 overflow-y-auto"
+      >
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-black text-gray-900">Notifications</h2>
+            <button
+              @click="showNotifications = false"
+              class="text-gray-400 hover:text-gray-600"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
@@ -498,6 +555,29 @@ const stats = ref({
   masseSalariale: "0 FCFA",
 });
 
+const showNotifications = ref(false);
+
+const notifications = ref([
+  {
+    id: 1,
+    title: "Nouvelle demande de congé",
+    message: "Jean Dupont a demandé un congé du 15-20 décembre",
+    date: "Il y a 1h",
+  },
+  {
+    id: 2,
+    title: "Paies générées",
+    message: "Les bulletins de novembre 2025 sont prêts",
+    date: "Il y a 3h",
+  },
+  {
+    id: 3,
+    title: "Déclaration CNSS",
+    message: "Date limite: 15 novembre 2025",
+    date: "Yesterday",
+  },
+]);
+
 const userInitials = computed(() => {
   if (!user?.fullname) return "AD";
   const parts = user.fullname.split(" ");
@@ -510,7 +590,7 @@ const userInitials = computed(() => {
 
 // ===== Données pour Chart.js (calculées dynamiquement) =====
 const pieData = ref([
-  { name: "Collaborateurs", value: 0, color: "#3B82F6" },
+  { name: "Collaborateurs", value: 0, color: "#3B82F6" }, // Bleu - Changez cette couleur ici
   { name: "Paies", value: 0, color: "#22C55E" },
   { name: "Déclarations", value: 0, color: "#A855F7" },
   { name: "Congés", value: 0, color: "#F97316" },
@@ -548,7 +628,7 @@ onMounted(async () => {
     }
 
     // Mettre à jour les données du graphique avec les vraies valeurs
-    const total =
+    const total = 
       stats.value.total_employees +
       stats.value.total_paies +
       stats.value.total_declarations +
@@ -556,21 +636,11 @@ onMounted(async () => {
       stats.value.total_loans;
 
     if (total > 0) {
-      pieData.value[0].value = Math.round(
-        (stats.value.total_employees / total) * 100
-      );
-      pieData.value[1].value = Math.round(
-        (stats.value.total_paies / total) * 100
-      );
-      pieData.value[2].value = Math.round(
-        (stats.value.total_declarations / total) * 100
-      );
-      pieData.value[3].value = Math.round(
-        (stats.value.total_conges / total) * 100
-      );
-      pieData.value[4].value = Math.round(
-        (stats.value.total_loans / total) * 100
-      );
+      pieData.value[0].value = Math.round((stats.value.total_employees / total) * 100);
+      pieData.value[1].value = Math.round((stats.value.total_paies / total) * 100);
+      pieData.value[2].value = Math.round((stats.value.total_declarations / total) * 100);
+      pieData.value[3].value = Math.round((stats.value.total_conges / total) * 100);
+      pieData.value[4].value = Math.round((stats.value.total_loans / total) * 100);
     }
 
     // ===== Init Chart.js =====
