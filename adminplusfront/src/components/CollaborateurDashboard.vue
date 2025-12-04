@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { useAuthStore } from "../stores/auth";
 import { useRouter } from "vue-router";
 import CongeModal from "./CongeModal.vue";
+import NotificationPanel from "../components/NotificationPanel.vue";
 import api from "../services/api/axios";
 
 const authStore = useAuthStore();
@@ -253,32 +254,63 @@ const getStatutClass = (statut: string) => {
     </div>
 
     <div v-else>
+      <!-- Header Hero Section avec Notifications -->
       <div
-        class="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl p-8 mb-4 text-white shadow-xl"
+        class="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden"
       >
-        <div class="flex items-center justify-between flex-wrap gap-4">
+        <div
+          class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"
+        ></div>
+        <div
+          class="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24"
+        ></div>
+
+        <div
+          class="relative z-10 flex items-center justify-between flex-wrap gap-6"
+        >
           <div class="flex items-center gap-6">
             <div
-              class="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-2xl font-bold border-4 border-white/30"
+              class="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center text-3xl font-black border-4 border-white/40 shadow-lg"
             >
               {{ userInitials }}
             </div>
             <div>
-              <h1 class="text-3xl font-bold mb-1">
-                Bonjour, {{ user?.fullname }}
-              </h1>
-              <p class="text-blue-100 text-lg">{{ user?.email }}</p>
+              <p class="text-sm text-white/80 mb-1">Bienvenue</p>
+              <h1 class="text-4xl font-black mb-2">{{ user?.fullname }}</h1>
+              <p class="text-blue-100 flex items-center gap-2">
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+                {{ user?.email }}
+              </p>
             </div>
           </div>
-          <button
-            @click="showCongeModal = true"
-            class="bg-white text-blue-600 px-6 py-3 rounded-xl font-bold hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-          >
-            + Demander un congé
-          </button>
+
+          <!-- Badge Collaborateur & Notifications -->
+          <div class="flex gap-3">
+            <span
+              class="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl font-bold text-sm shadow-lg"
+            >
+              Collaborateur
+            </span>
+
+            <!-- Composant Notification avec Pusher -->
+            <NotificationPanel />
+          </div>
         </div>
       </div>
 
+      <!-- Stats Cards -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <div class="flex items-center justify-between mb-4">

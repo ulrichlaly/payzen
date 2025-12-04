@@ -6,8 +6,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useAuthStore } from "./stores/auth";
-import { setNotificationComponent } from "./composables/useNotification";
-import NotificationToast from "./components/NotificationToast.vue";
 
 const authStore = useAuthStore();
 const notificationToastRef = ref();
@@ -16,7 +14,6 @@ onMounted(() => {
   authStore.restoreUser();
 
   if (notificationToastRef.value) {
-    setNotificationComponent(notificationToastRef.value);
     console.log("✅ Système de notifications initialisé");
   }
 });

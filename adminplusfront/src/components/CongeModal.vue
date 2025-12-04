@@ -69,6 +69,7 @@
             <select
               v-model="formData.collaborator_id"
               required
+              @change="loadSoldeConges"
               class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             >
               <option value="">Sélectionner un employé...</option>
@@ -76,6 +77,27 @@
                 {{ emp.fullname }} ({{ emp.matricule }})
               </option>
             </select>
+          </div>
+
+          <!-- Affichage du solde disponible -->
+          <div
+            v-if="formData.collaborator_id && soldeLoaded"
+            class="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300 rounded-lg p-4"
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-semibold text-gray-700">
+                  Solde de congés disponible
+                </p>
+                <p class="text-xs text-gray-600 mt-1">Pour cet employé</p>
+              </div>
+              <div class="text-right">
+                <p class="text-3xl font-bold text-green-600">
+                  {{ soldeConges }}
+                </p>
+                <p class="text-xs text-gray-600">jour(s)</p>
+              </div>
+            </div>
           </div>
 
           <!-- Type de congé -->
@@ -127,7 +149,14 @@
           </div>
 
           <!-- Nombre de jours (calculé automatiquement) -->
-          <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+          <div
+            :class="[
+              'border-2 rounded-lg p-4',
+              exceedsSolde
+                ? 'bg-red-50 border-red-300'
+                : 'bg-blue-50 border-blue-200',
+            ]"
+          >
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm font-semibold text-gray-700">
@@ -138,10 +167,45 @@
                 </p>
               </div>
               <div class="text-right">
-                <p class="text-3xl font-bold text-blue-600">
+                <p
+                  :class="[
+                    'text-3xl font-bold',
+                    exceedsSolde ? 'text-red-600' : 'text-blue-600',
+                  ]"
+                >
                   {{ formData.nb_jours }}
                 </p>
                 <p class="text-xs text-gray-600">jour(s)</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alerte si dépassement du solde -->
+          <div
+            v-if="exceedsSolde"
+            class="bg-red-50 border-l-4 border-red-500 p-4 rounded"
+          >
+            <div class="flex items-start gap-3">
+              <svg
+                class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <div class="text-sm text-red-800">
+                <p class="font-semibold mb-1">Solde insuffisant</p>
+                <p>
+                  La durée demandée ({{ formData.nb_jours }} jour(s)) dépasse le
+                  solde disponible ({{ soldeConges }} jour(s)). Veuillez réduire
+                  la durée de votre demande.
+                </p>
               </div>
             </div>
           </div>
@@ -217,7 +281,7 @@
             </button>
             <button
               type="submit"
-              :disabled="loading || !isFormValid"
+              :disabled="loading || !isFormValid || exceedsSolde"
               class="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
             >
               <svg
@@ -269,6 +333,8 @@ const emit = defineEmits(["close", "submit"]);
 const loading = ref(false);
 const error = ref("");
 const employees = ref<Employee[]>([]);
+const soldeConges = ref(0);
+const soldeLoaded = ref(false);
 
 const formData = ref({
   collaborator_id: "",
@@ -299,6 +365,33 @@ const loadEmployees = async () => {
   }
 };
 
+const loadSoldeConges = async () => {
+  if (!formData.value.collaborator_id) {
+    soldeLoaded.value = false;
+    return;
+  }
+
+  try {
+    const response = await api.get(
+      `/collaborators/${formData.value.collaborator_id}/conges`
+    );
+    const congesData = Array.isArray(response.data)
+      ? response.data
+      : response.data.historique || [];
+
+    const joursPris = congesData
+      .filter((c: any) => c.statut === "approuvé")
+      .reduce((sum: number, c: any) => sum + (c.nb_jours || 0), 0);
+
+    soldeConges.value = 30 - joursPris;
+    soldeLoaded.value = true;
+  } catch (error) {
+    console.error("Erreur chargement solde:", error);
+    soldeConges.value = 0;
+    soldeLoaded.value = false;
+  }
+};
+
 const calculateDays = () => {
   if (formData.value.date_debut && formData.value.date_fin) {
     const start = new Date(formData.value.date_debut);
@@ -308,6 +401,10 @@ const calculateDays = () => {
     formData.value.nb_jours = diffDays;
   }
 };
+
+const exceedsSolde = computed(() => {
+  return soldeLoaded.value && formData.value.nb_jours > soldeConges.value;
+});
 
 const isFormValid = computed(() => {
   return (
@@ -329,6 +426,11 @@ const handleSubmit = () => {
 
   if (new Date(formData.value.date_fin) < new Date(formData.value.date_debut)) {
     error.value = "La date de fin doit être après la date de début";
+    return;
+  }
+
+  if (exceedsSolde.value) {
+    error.value = `Solde insuffisant. Vous demandez ${formData.value.nb_jours} jour(s) mais le solde disponible est de ${soldeConges.value} jour(s)`;
     return;
   }
 

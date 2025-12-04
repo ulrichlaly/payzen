@@ -5,7 +5,6 @@
       <div
         class="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden"
       >
-        <!-- Decorative circles -->
         <div
           class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"
         ></div>
@@ -51,29 +50,9 @@
             >
               Administrateur
             </span>
-            <button
-              @click="showNotifications = !showNotifications"
-              class="bg-white/20 backdrop-blur-xl text-white p-3 rounded-xl hover:bg-white/30 transition-all relative"
-            >
-              <svg
-                class="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                />
-              </svg>
-              <span
-                v-if="notifications.length > 0"
-                class="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold"
-                >{{ notifications.length }}</span
-              >
-            </button>
+
+            <!-- 🔥 COMPOSANT NOTIFICATION AVEC PUSHER -->
+            <NotificationPanel />
           </div>
         </div>
       </div>
@@ -515,83 +494,13 @@
         </div>
       </div>
     </div>
-
-    <!-- Notifications Panel (Slide-in) -->
-    <transition name="slide">
-      <div
-        v-if="showNotifications"
-        class="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 overflow-y-auto"
-      >
-        <div class="p-6">
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="text-2xl font-black text-gray-900">Notifications</h2>
-            <button
-              @click="showNotifications = false"
-              class="text-gray-400 hover:text-gray-600"
-            >
-              <svg
-                class="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <div
-            v-if="notifications.length === 0"
-            class="text-center py-12 text-gray-400"
-          >
-            <svg
-              class="w-16 h-16 mx-auto mb-4 opacity-50"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-            <p class="font-semibold">Aucune notification</p>
-          </div>
-
-          <div v-else class="space-y-3">
-            <div
-              v-for="notif in notifications"
-              :key="notif.id"
-              class="p-4 bg-blue-50 rounded-xl border-l-4 border-blue-500 hover:shadow-md transition-all cursor-pointer"
-            >
-              <p class="font-bold text-gray-900 mb-1">{{ notif.title }}</p>
-              <p class="text-sm text-gray-600">{{ notif.message }}</p>
-              <p class="text-xs text-gray-400 mt-2">{{ notif.date }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <!-- Overlay for notifications -->
-    <div
-      v-if="showNotifications"
-      @click="showNotifications = false"
-      class="fixed inset-0 bg-black/50 z-40"
-    ></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useAuthStore } from "../stores/auth";
+import NotificationPanel from "../components/NotificationPanel.vue";
 import api from "../services/api/axios";
 
 const authStore = useAuthStore();
@@ -603,29 +512,6 @@ const stats = ref({
   total_declarations: 0,
   total_conges: 0,
 });
-
-const showNotifications = ref(false);
-
-const notifications = ref([
-  {
-    id: 1,
-    title: "Nouvelle demande de congé",
-    message: "Jean Dupont a demandé un congé du 15-20 décembre",
-    date: "Il y a 1h",
-  },
-  {
-    id: 2,
-    title: "Paies générées",
-    message: "Les bulletins de novembre 2025 sont prêts",
-    date: "Il y a 3h",
-  },
-  {
-    id: 3,
-    title: "Déclaration CNSS",
-    message: "Date limite: 15 novembre 2025",
-    date: "Hier",
-  },
-]);
 
 const userInitials = computed(() => {
   if (!user?.fullname) return "AD";
@@ -648,7 +534,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Animations personnalisées */
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -662,17 +547,5 @@ onMounted(async () => {
 
 .stat-card {
   animation: slideIn 0.5s ease-out;
-}
-
-/* Animation panneau notifications */
-.slide-enter-active,
-.slide-leave-active {
-  transition: transform 0.3s ease;
-}
-.slide-enter-from {
-  transform: translateX(100%);
-}
-.slide-leave-to {
-  transform: translateX(100%);
 }
 </style>

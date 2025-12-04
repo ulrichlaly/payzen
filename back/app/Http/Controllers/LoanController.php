@@ -3,189 +3,203 @@
 namespace App\Http\Controllers;
 
 use App\Models\Loan;
-use App\Models\Collaborator;
+use App\Events\NewLoanRequestEvent;
+use App\Events\LoanStatusChangedEvent;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class LoanController extends Controller
 {
-    // Liste tous les prêts (Admin/Comptable)
-    public function index(Request $request)
+    /**
+     * Liste tous les prêts (Admin/Comptable)
+     */
+    public function index(Request $request): JsonResponse
     {
-        $query = Loan::with(['collaborator.user']);
+        try {
+            $query = Loan::with(['collaborator.user'])
+                ->when($request->statut, fn($q) => $q->where('statut', $request->statut))
+                ->when($request->type, fn($q) => $q->where('type', $request->type))
+                ->orderBy('created_at', 'desc');
 
-        // Filtres
-        if ($request->has('statut') && $request->statut) {
-            $query->where('statut', $request->statut);
+            $loans = $query->get();
+
+            return response()->json($loans);
+        } catch (\Exception $e) {
+            Log::error('Erreur chargement prêts', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur lors du chargement'], 500);
         }
-
-        if ($request->has('type') && $request->type) {
-            $query->where('type', $request->type);
-        }
-
-        $loans = $query->orderBy('created_at', 'desc')->get();
-
-        // ✅ Transformer les données pour ajouter le nom complet
-        $loans = $loans->map(function ($loan) {
-            $collaborator = $loan->collaborator;
-            $user = $collaborator ? $collaborator->user : null;
-
-            return [
-                'id' => $loan->id,
-                'collaborator_id' => $loan->collaborator_id,
-                'type' => $loan->type,
-                'montant' => $loan->montant,
-                'duree' => $loan->duree,
-                'montant_restant' => $loan->montant_restant,
-                'mensualite' => $loan->mensualite,
-                'motif' => $loan->motif,
-                'statut' => $loan->statut,
-                'motif_rejet' => $loan->motif_rejet,
-                'date_debut' => $loan->date_debut,
-                'created_at' => $loan->created_at,
-                'updated_at' => $loan->updated_at,
-                'collaborator' => [
-                    'id' => $collaborator->id ?? null,
-                    'matricule' => $collaborator->matricule ?? null,
-                    'nom_complet' => $user ? $user->fullname : 'N/A',
-                    'email' => $collaborator->email ?? null,
-                    'poste' => $collaborator->poste ?? null,
-                ]
-            ];
-        });
-
-        return response()->json($loans, 200);
     }
 
-    // Prêts du collaborateur connecté
-    public function myLoans(Request $request)
+    /**
+     * Mes prêts (Collaborateur)
+     */
+    public function myLoans(Request $request): JsonResponse
     {
-        $user = $request->user();
+        try {
+            $collaborator = $request->user()->collaborator;
 
-        $collaborator = Collaborator::where('user_id', $user->id)->first();
+            if (!$collaborator) {
+                return response()->json(['data' => []]);
+            }
 
-        if (!$collaborator) {
+            $loans = Loan::where('collaborator_id', $collaborator->id)
+                ->with('collaborator.user')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json($loans);
+        } catch (\Exception $e) {
+            Log::error('Erreur myLoans', ['error' => $e->getMessage()]);
+            return response()->json(['data' => []], 500);
+        }
+    }
+
+    /**
+     * Créer une nouvelle demande de prêt
+     */
+    public function store(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'type' => 'required|in:Prêt,Avance',
+                'montant' => 'required|numeric|min:1',
+                'duree' => 'required|integer|min:1|max:24',
+                'motif' => 'nullable|string|max:500'
+            ]);
+
+            $collaborator = $request->user()->collaborator;
+
+            if (!$collaborator) {
+                return response()->json([
+                    'message' => 'Vous devez être un collaborateur'
+                ], 403);
+            }
+
+            $loan = Loan::create([
+                'collaborator_id' => $collaborator->id,
+                'type' => $validated['type'],
+                'montant' => $validated['montant'],
+                'duree' => $validated['duree'],
+                'motif' => $validated['motif'] ?? null,
+                'statut' => 'En attente',
+                'montant_restant' => $validated['montant'],
+            ]);
+
+            $loan->load('collaborator.user');
+
+            // 🔥 Diffuser l'événement Pusher
+            broadcast(new NewLoanRequestEvent($loan))->toOthers();
+
+            Log::info('Nouvelle demande de prêt créée', ['loan_id' => $loan->id]);
+
             return response()->json([
-                'message' => 'Vous devez être enregistré comme collaborateur.',
-                'error' => 'Collaborateur introuvable'
-            ], 403);
+                'message' => 'Demande soumise avec succès',
+                'loan' => $loan
+            ], 201);
+        } catch (\Exception $e) {
+            Log::error('Erreur création prêt', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur lors de la création'], 500);
         }
-
-        $loans = Loan::where('collaborator_id', $collaborator->id)
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json($loans, 200);
     }
 
-    // Créer une demande de prêt/avance
-    public function store(Request $request)
+    /**
+     * Approuver une demande de prêt
+     */
+    public function approve(Request $request, int $id): JsonResponse
     {
-        $validated = $request->validate([
-            'type' => 'required|in:Prêt,Avance',
-            'montant' => 'required|numeric|min:10000',
-            'duree' => 'required|integer|min:1|max:24',
-            'motif' => 'required|string|min:20',
-        ]);
+        try {
+            $loan = Loan::with('collaborator.user')->findOrFail($id);
 
-        $user = $request->user();
+            if ($loan->statut !== 'En attente') {
+                return response()->json([
+                    'message' => 'Ce prêt ne peut plus être approuvé'
+                ], 400);
+            }
 
-        $collaborator = Collaborator::where('user_id', $user->id)->first();
+            $loan->update([
+                'statut' => 'En cours',
+                'date_approbation' => now(),
+                'date_debut' => now()
+            ]);
 
-        if (!$collaborator) {
+            // 🔥 Notifier le collaborateur
+            broadcast(new LoanStatusChangedEvent($loan, 'En cours'))->toOthers();
+
             return response()->json([
-                'message' => 'Vous devez être enregistré comme collaborateur.',
-                'error' => 'Collaborateur introuvable'
-            ], 403);
+                'message' => 'Prêt approuvé avec succès',
+                'loan' => $loan->fresh(['collaborator.user'])
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Erreur approbation prêt', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur'], 500);
         }
-
-        $validated['collaborator_id'] = $collaborator->id;
-
-        $loan = Loan::create($validated);
-
-        return response()->json([
-            'message' => 'Demande créée avec succès.',
-            'data' => $loan
-        ], 201);
     }
 
-    // Approuver un prêt
-    public function approve($id)
+    /**
+     * Rejeter une demande de prêt
+     */
+    public function reject(Request $request, int $id): JsonResponse
     {
-        $loan = Loan::find($id);
+        try {
+            $validated = $request->validate([
+                'motif_rejet' => 'required|string|max:500'
+            ]);
 
-        if (!$loan) {
-            return response()->json(['message' => 'Prêt introuvable.'], 404);
+            $loan = Loan::with('collaborator.user')->findOrFail($id);
+
+            if ($loan->statut !== 'En attente') {
+                return response()->json([
+                    'message' => 'Ce prêt ne peut plus être rejeté'
+                ], 400);
+            }
+
+            $loan->update([
+                'statut' => 'Rejeté',
+                'motif_rejet' => $validated['motif_rejet']
+            ]);
+
+            // 🔥 Notifier le collaborateur
+            broadcast(new LoanStatusChangedEvent($loan, 'Rejeté'))->toOthers();
+
+            return response()->json([
+                'message' => 'Prêt rejeté',
+                'loan' => $loan->fresh(['collaborator.user'])
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Erreur rejet prêt', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur'], 500);
         }
-
-        $loan->update([
-            'statut' => 'En cours',
-            'date_debut' => Carbon::now()
-        ]);
-
-        return response()->json([
-            'message' => 'Prêt approuvé.',
-            'data' => $loan
-        ], 200);
     }
 
-    // Rejeter un prêt
-    public function reject(Request $request, $id)
+    /**
+     * Supprimer une demande (Collaborateur - seulement si en attente)
+     */
+    public function destroy(Request $request, int $id): JsonResponse
     {
-        $validated = $request->validate([
-            'motif_rejet' => 'required|string|min:10',
-        ]);
+        try {
+            $collaborator = $request->user()->collaborator;
 
-        $loan = Loan::find($id);
+            if (!$collaborator) {
+                return response()->json(['message' => 'Non autorisé'], 403);
+            }
 
-        if (!$loan) {
-            return response()->json(['message' => 'Prêt introuvable.'], 404);
+            $loan = Loan::where('collaborator_id', $collaborator->id)
+                ->where('id', $id)
+                ->firstOrFail();
+
+            if ($loan->statut !== 'En attente') {
+                return response()->json([
+                    'message' => 'Seules les demandes en attente peuvent être supprimées'
+                ], 400);
+            }
+
+            $loan->delete();
+
+            return response()->json(['message' => 'Demande annulée avec succès']);
+        } catch (\Exception $e) {
+            Log::error('Erreur suppression prêt', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur'], 500);
         }
-
-        $loan->update([
-            'statut' => 'Rejeté',
-            'motif_rejet' => $validated['motif_rejet']
-        ]);
-
-        return response()->json([
-            'message' => 'Prêt rejeté.',
-            'data' => $loan
-        ], 200);
-    }
-
-    // Mettre à jour le statut (PATCH)
-    public function update(Request $request, $id)
-    {
-        $loan = Loan::find($id);
-
-        if (!$loan) {
-            return response()->json(['message' => 'Prêt introuvable.'], 404);
-        }
-
-        $validated = $request->validate([
-            'statut' => 'required|in:En attente,Approuvé,Rejeté,En cours,Remboursé',
-            'motif_rejet' => 'nullable|string',
-        ]);
-
-        $loan->update($validated);
-
-        return response()->json([
-            'message' => 'Prêt mis à jour.',
-            'data' => $loan
-        ], 200);
-    }
-
-    // Supprimer un prêt
-    public function destroy($id)
-    {
-        $loan = Loan::find($id);
-
-        if (!$loan) {
-            return response()->json(['message' => 'Prêt introuvable.'], 404);
-        }
-
-        $loan->delete();
-
-        return response()->json(['message' => 'Prêt supprimé.'], 200);
     }
 }

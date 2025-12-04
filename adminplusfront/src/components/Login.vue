@@ -95,10 +95,21 @@
                   v-model="email"
                   type="email"
                   required
-                  class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium text-gray-900 placeholder-gray-400"
-                  placeholder="email"
+                  @blur="validateEmail"
+                  @input="emailError = ''"
+                  :class="[
+                    'w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 placeholder-gray-400',
+                    emailError ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-blue-500'
+                  ]"
+                  placeholder="exemple@email.com"
                 />
               </div>
+              <p v-if="emailError" class="mt-2 text-sm text-red-600 font-semibold flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {{ emailError }}
+              </p>
             </div>
 
             <div>
@@ -157,7 +168,7 @@
 
             <button
               type="submit"
-              :disabled="loading"
+              :disabled="loading || !!emailError"
               class="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white py-3.5 rounded-xl font-bold text-base transition-all duration-300 shadow-lg shadow-blue-500/50 hover:shadow-xl hover:shadow-blue-600/60 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
             >
               <span v-if="loading" class="flex items-center justify-center gap-2">
@@ -203,8 +214,30 @@ const showPassword = ref(false);
 const rememberMe = ref(false);
 const loading = ref(false);
 const errorMessage = ref("");
+const emailError = ref("");
+
+const validateEmail = () => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  if (!email.value) {
+    emailError.value = "";
+    return false;
+  }
+  
+  if (!emailRegex.test(email.value)) {
+    emailError.value = "Format d'email invalide. Exemple: utilisateur@domaine.com";
+    return false;
+  }
+  
+  emailError.value = "";
+  return true;
+};
 
 const handleLogin = async () => {
+  if (!validateEmail()) {
+    return;
+  }
+
   loading.value = true;
   errorMessage.value = "";
 
@@ -224,7 +257,6 @@ const handleLogin = async () => {
       console.log('Rôle de l\'utilisateur:', userRole);
       
       const dashboardRoute = getRoleDashboard(userRole);
-      // const dashboardRoute = "/comptable/dashboard";
       console.log('Redirection vers:', dashboardRoute);
       
       await router.replace(dashboardRoute);
@@ -237,7 +269,7 @@ const handleLogin = async () => {
     console.error("Erreur de connexion:", error);
     
     if (error.response?.status === 401) {
-      errorMessage.value = "Identifiants incorrects. Veuillez réessayer.";
+      errorMessage.value = "Email ou mot de passe incorrect. Veuillez réessayer.";
     } else if (error.response?.data?.message) {
       errorMessage.value = error.response.data.message;
     } else if (error.message === 'Network Error') {

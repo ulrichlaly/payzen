@@ -1879,13 +1879,14 @@ const handleSubmit = async (data: any, uploadCallback?: Function) => {
     data,
     hasCallback: !!uploadCallback,
     hasContrat: data.hasContrat,
+    isEdit: data.isEdit,
   });
 
   try {
     let collaboratorId: number | undefined;
 
     if (data.isEdit && selectedEmployeeForEdit.value?.id) {
-      // Préparer les données pour la mise à jour
+      // === MODIFICATION ===
       const updateData = {
         nom_complet: data.fullname,
         email: data.email,
@@ -1914,13 +1915,37 @@ const handleSubmit = async (data: any, uploadCallback?: Function) => {
       );
       collaboratorId = selectedEmployeeForEdit.value.id;
       successMessage.value = "Employé modifié avec succès !";
-      console.log("✅ Employé modifié, ID:", collaboratorId);
+      console.log("Employé modifié, ID:", collaboratorId);
     } else {
-      console.log("⚠️ Pas d'upload:", {
-        hasCallback: !!uploadCallback,
-        hasContrat: data.hasContrat,
-        hasCollaboratorId: !!collaboratorId,
-      });
+      // === CRÉATION ===
+      console.log("🟢 Création d'un nouveau collaborateur");
+
+      const createData = {
+        fullname: data.fullname,
+        email: data.email,
+        telephone: data.telephone || data.tel,
+        poste: data.poste,
+        salaire_base: data.salaire_base,
+        date_embauche: data.date_embauche,
+        date_naissance: data.date_naissance,
+        genre: data.genre,
+        adresse: data.adresse,
+        departement: data.departement,
+        situation_familiale: data.situation_familiale,
+        nombre_enfants: data.nombre_enfants,
+        type_contrat: data.type_contrat,
+        duree_contrat: data.duree_contrat,
+        date_fin_contrat: data.date_fin_contrat,
+        heures_travail: data.heures_travail,
+        jours_conges: data.jours_conges,
+        iban: data.iban,
+        notes_parcours: data.notes_parcours,
+      };
+
+      const response = await api.post("/collaborators", createData);
+      collaboratorId = response.data.collaborator_id || response.data.id;
+      successMessage.value = "Employé créé avec succès !";
+      console.log("Employé créé, ID:", collaboratorId);
     }
 
     await loadEmployees();
@@ -1930,7 +1955,8 @@ const handleSubmit = async (data: any, uploadCallback?: Function) => {
       successMessage.value = "";
     }, 5000);
   } catch (error: any) {
-    console.error("❌ Erreur handleSubmit:", error);
+    console.error("❌ Erreur complète:", error);
+    console.error("Response data:", error.response?.data);
     alert(error.response?.data?.message || "Erreur lors de l'opération");
   }
 };
@@ -1986,7 +2012,6 @@ const saveParcours = async () => {
       successMessage.value = "";
     }, 3000);
   } catch (error) {
-    console.error("Erreur:", error);
     alert("Erreur lors de l'ajout du parcours");
   }
 };
@@ -2020,7 +2045,6 @@ const saveEntretien = async () => {
       successMessage.value = "";
     }, 3000);
   } catch (error) {
-    console.error("Erreur:", error);
     alert("Erreur lors de l'enregistrement de l'entretien");
   }
 };
