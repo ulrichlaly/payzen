@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Collaborator extends Model
 {
@@ -46,10 +45,8 @@ class Collaborator extends Model
     ];
 
     /**
-     * ✅ IMPORTANT : Ajouter nom_complet dans appends
+     * Relation : un collaborateur appartient à un utilisateur.
      */
-    protected $appends = ['nom_complet'];
-
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -78,16 +75,5 @@ class Collaborator extends Model
     public function documents()
     {
         return $this->hasMany(Document::class);
-    }
-
-    /**
-     * ✅ AJOUT : Accesseur pour obtenir le nom complet
-     * Méthode Laravel 12 (avec Attribute)
-     */
-    protected function nomComplet(): Attribute
-    {
-        return Attribute::make(
-            get: fn() => $this->user?->fullname ?? 'Collaborateur inconnu',
-        );
     }
 }

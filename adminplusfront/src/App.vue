@@ -1,21 +1,44 @@
 <template>
-  <NotificationToast ref="notificationToastRef" />
   <router-view />
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { onMounted, onUnmounted, watch } from "vue";
 import { useAuthStore } from "./stores/auth";
+import { useNotificationStore } from "./stores/notifications";
 
 const authStore = useAuthStore();
-const notificationToastRef = ref();
+const notificationStore = useNotificationStore();
+
+// Surveiller l'état d'authentification
+watch(
+  () => authStore.isAuthenticated,
+  (isAuth) => {
+    if (isAuth) {
+      // Charger les notifications quand l'utilisateur se connecte
+      notificationStore.loadNotifications();
+      notificationStore.listenToNotifications();
+    } else {
+      // Arrêter l'écoute quand l'utilisateur se déconnecte
+      notificationStore.stopListening();
+    }
+  }
+);
 
 onMounted(() => {
+  // Restaurer l'utilisateur depuis le localStorage
   authStore.restoreUser();
 
-  if (notificationToastRef.value) {
-    console.log("✅ Système de notifications initialisé");
+  // Si l'utilisateur est déjà authentifié, charger les notifications
+  if (authStore.isAuthenticated) {
+    notificationStore.loadNotifications();
+    notificationStore.listenToNotifications();
   }
+});
+
+onUnmounted(() => {
+  // Arrêter l'écoute des notifications lors de la destruction du composant
+  notificationStore.stopListening();
 });
 </script>
 

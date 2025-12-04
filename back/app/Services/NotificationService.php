@@ -46,23 +46,42 @@ class NotificationService
     }
 
     /**
+     * Récupérer le nom complet du collaborateur
+     */
+    private function getNomComplet($collaborator): string
+    {
+        // Charger la relation user si pas déjà chargée
+        if (!$collaborator->relationLoaded('user')) {
+            $collaborator->load('user');
+        }
+
+        // Retourner le fullname du user, ou construire à partir de nom/prenom
+        return $collaborator->user->fullname ??
+            trim(($collaborator->prenom ?? '') . ' ' . ($collaborator->nom ?? '')) ?:
+            'Collaborateur';
+    }
+
+    /**
      * Notification pour nouvelle demande de congé (Admin)
      */
     public function nouvelleDemandeConge($conge, $collaborator)
     {
         $admins = User::whereHas('roles', function ($query) {
-            $query->whereIn('name', ['Admin Général', 'Administrateur']);
+            $query->whereIn('name', ['Admin Général', 'Administrateur', 'Admin']);
         })->get();
+
+        $nomComplet = $this->getNomComplet($collaborator);
 
         foreach ($admins as $admin) {
             $this->envoyerNotification(
                 $admin,
                 'conge',
                 'Nouvelle demande de congé',
-                "{$collaborator->nom} {$collaborator->prenom} a fait une demande de congé de {$conge->nb_jours} jour(s)",
+                "{$nomComplet} a fait une demande de congé de {$conge->nb_jours} jour(s)",
                 [
                     'conge_id' => $conge->id,
                     'collaborator_id' => $collaborator->id,
+                    'collaborator_name' => $nomComplet,
                     'type_conge' => $conge->type,
                     'date_debut' => $conge->date_debut,
                     'date_fin' => $conge->date_fin,
@@ -130,18 +149,21 @@ class NotificationService
     public function nouvelDemandePret($loan, $collaborator)
     {
         $destinataires = User::whereHas('roles', function ($query) {
-            $query->whereIn('name', ['Admin Général', 'Administrateur', 'Comptable']);
+            $query->whereIn('name', ['Admin Général', 'Administrateur', 'Admin', 'Comptable']);
         })->get();
+
+        $nomComplet = $this->getNomComplet($collaborator);
 
         foreach ($destinataires as $user) {
             $this->envoyerNotification(
                 $user,
                 'loan',
                 'Nouvelle demande de prêt/avance',
-                "{$collaborator->nom} {$collaborator->prenom} demande un {$loan->type} de " . number_format($loan->montant, 0, ',', ' ') . " FCFA",
+                "{$nomComplet} demande un {$loan->type} de " . number_format($loan->montant, 0, ',', ' ') . " FCFA",
                 [
                     'loan_id' => $loan->id,
                     'collaborator_id' => $collaborator->id,
+                    'collaborator_name' => $nomComplet,
                     'type' => $loan->type,
                     'montant' => $loan->montant,
                     'duree' => $loan->duree,
@@ -245,18 +267,21 @@ class NotificationService
     public function nouvelleNoteDeFrais($expense, $collaborator)
     {
         $destinataires = User::whereHas('roles', function ($query) {
-            $query->whereIn('name', ['Admin Général', 'Administrateur', 'Comptable']);
+            $query->whereIn('name', ['Admin Général', 'Administrateur', 'Admin', 'Comptable']);
         })->get();
+
+        $nomComplet = $this->getNomComplet($collaborator);
 
         foreach ($destinataires as $user) {
             $this->envoyerNotification(
                 $user,
                 'expense',
                 'Nouvelle note de frais',
-                "{$collaborator->nom} {$collaborator->prenom} a soumis une note de frais ({$expense->categorie}) de " . number_format($expense->montant, 0, ',', ' ') . " FCFA",
+                "{$nomComplet} a soumis une note de frais ({$expense->categorie}) de " . number_format($expense->montant, 0, ',', ' ') . " FCFA",
                 [
                     'expense_id' => $expense->id,
                     'collaborator_id' => $collaborator->id,
+                    'collaborator_name' => $nomComplet,
                     'categorie' => $expense->categorie,
                     'montant' => $expense->montant,
                     'date' => $expense->date,

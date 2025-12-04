@@ -3,17 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Models\Paie;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 
 class PaieController extends Controller
 {
+    protected $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
 
     public function index()
     {
         $paies = Paie::with('collaborator.user')->get();
         return response()->json($paies, 200);
     }
-
 
     public function store(Request $request)
     {
@@ -28,19 +34,21 @@ class PaieController extends Controller
             'commentaire' => 'nullable|string',
         ]);
 
-
         $validated['net_a_payer'] =
             ($validated['salaire_base'] + ($validated['prime'] ?? 0) + ($validated['indemnite'] ?? 0))
             - ($validated['retenue'] ?? 0);
 
         $paie = Paie::create($validated);
 
+        // ✅ Envoyer la notification au collaborateur
+        $collaborator = $paie->collaborator;
+        $this->notificationService->paieEffectuee($paie, $collaborator);
+
         return response()->json([
             'message' => 'Fiche de paie créée avec succès.',
             'data' => $paie
         ], 201);
     }
-
 
     public function show($id)
     {
@@ -52,7 +60,6 @@ class PaieController extends Controller
 
         return response()->json($paie, 200);
     }
-
 
     public function update(Request $request, $id)
     {
@@ -79,7 +86,6 @@ class PaieController extends Controller
             'data' => $paie
         ], 200);
     }
-
 
     public function destroy($id)
     {

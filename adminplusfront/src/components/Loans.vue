@@ -390,11 +390,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import LoanDetailModal from "./LoanDetailModal.vue";
 import api from "../services/api/axios";
 import Swal from "sweetalert2";
-import Pusher from "pusher-js";
 
 interface Loan {
   id: number;
@@ -431,142 +430,8 @@ const stats = computed(() => {
   return { total, enAttente, enCours, montantTotal };
 });
 
-// 🔥 PUSHER - Variables
-let pusher: Pusher | null = null;
-let loansChannel: any = null;
-
-// 🔥 Initialiser l'écoute en temps réel
-const setupRealtimeUpdates = () => {
-  try {
-    // Initialiser Pusher
-    pusher = new Pusher(import.meta.env.VITE_PUSHER_APP_KEY, {
-      cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
-      forceTLS: true,
-    });
-
-    // S'abonner au canal public 'loans'
-    loansChannel = pusher.subscribe("loans");
-
-    loansChannel.bind("pusher:subscription_succeeded", () => {
-      console.log("✅ Abonné au canal loans (temps réel activé)");
-    });
-
-    // 🆕 Écouter les nouvelles demandes de prêts
-    loansChannel.bind("loan.created", (data: any) => {
-      console.log("🆕 Nouvelle demande de prêt:", data);
-
-      if (data.loan) {
-        // Ajouter le nouveau prêt en haut de la liste
-        const newLoan = formatLoan(data.loan);
-        loans.value.unshift(newLoan);
-
-        // Toast notification
-        Swal.fire({
-          toast: true,
-          position: "top-end",
-          icon: "info",
-          title: "🆕 Nouvelle demande",
-          text: `${
-            data.loan.collaborator?.nom_complet || "Un collaborateur"
-          } a fait une demande`,
-          showConfirmButton: false,
-          timer: 4000,
-          timerProgressBar: true,
-        });
-
-        playNotificationSound();
-      }
-    });
-
-    // 🔄 Écouter les mises à jour de prêts
-    loansChannel.bind("loan.updated", (data: any) => {
-      console.log("🔄 Prêt mis à jour:", data);
-
-      if (data.loan) {
-        const index = loans.value.findIndex((l) => l.id === data.loan.id);
-
-        if (index !== -1) {
-          // Mettre à jour le prêt existant
-          loans.value[index] = formatLoan(data.loan);
-
-          // Toast notification
-          Swal.fire({
-            toast: true,
-            position: "top-end",
-            icon: "success",
-            title: "✅ Mise à jour",
-            text: data.message || "Un prêt a été mis à jour",
-            showConfirmButton: false,
-            timer: 3000,
-            timerProgressBar: true,
-          });
-        } else {
-          // Si le prêt n'existe pas dans la liste, l'ajouter
-          loans.value.unshift(formatLoan(data.loan));
-        }
-      }
-    });
-
-    console.log("✅ Écoute en temps réel des prêts activée");
-  } catch (error) {
-    console.error("❌ Erreur initialisation Pusher loans:", error);
-  }
-};
-
-// Formater un prêt pour l'affichage
-const formatLoan = (l: any): Loan => {
-  const nomComplet = l.collaborator?.nom_complet || "Collaborateur inconnu";
-
-  return {
-    id: l.id,
-    employeeName: nomComplet,
-    initials: getInitials(nomComplet),
-    avatarColor: getRandomColor(),
-    type: l.type || "Prêt",
-    montant: parseFloat(l.montant || 0),
-    duree: parseInt(l.duree || 0),
-    montantRestant: parseFloat(l.montant_restant || l.montant || 0),
-    statut: l.statut || "En attente",
-    statusClass: getStatusClass(l.statut),
-    motif: l.motif,
-    date_demande: l.created_at,
-  };
-};
-
-// Son de notification
-const playNotificationSound = () => {
-  try {
-    const audio = new Audio("/notification.mp3");
-    audio.volume = 0.3;
-    audio.play().catch(() => {});
-  } catch (error) {
-    // Ignorer
-  }
-};
-
-// Nettoyer Pusher
-const cleanupPusher = () => {
-  if (loansChannel) {
-    loansChannel.unbind_all();
-    if (pusher) {
-      pusher.unsubscribe("loans");
-    }
-    console.log("❌ Désabonné du canal loans");
-  }
-
-  if (pusher) {
-    pusher.disconnect();
-    pusher = null;
-  }
-};
-
 onMounted(() => {
   loadLoans();
-  setupRealtimeUpdates(); // ⬅️ Activer le temps réel
-});
-
-onUnmounted(() => {
-  cleanupPusher(); // ⬅️ Nettoyer à la sortie
 });
 
 const loadLoans = async () => {
@@ -577,7 +442,24 @@ const loadLoans = async () => {
       ? response.data
       : response.data.data || [];
 
-    loans.value = data.map((l: any) => formatLoan(l));
+    loans.value = data.map((l: any) => {
+      const nomComplet = l.collaborator?.nom_complet || "Collaborateur inconnu";
+
+      return {
+        id: l.id,
+        employeeName: nomComplet,
+        initials: getInitials(nomComplet),
+        avatarColor: getRandomColor(),
+        type: l.type || "Prêt",
+        montant: parseFloat(l.montant || 0),
+        duree: parseInt(l.duree || 0),
+        montantRestant: parseFloat(l.montant_restant || l.montant || 0),
+        statut: l.statut || "En attente",
+        statusClass: getStatusClass(l.statut),
+        motif: l.motif,
+        date_demande: l.created_at,
+      };
+    });
   } catch (error) {
     console.error("Erreur chargement prêts:", error);
     Swal.fire({
@@ -631,8 +513,8 @@ const approveLoan = async (loan: Loan) => {
         showConfirmButton: false,
       });
 
+      await loadLoans();
       showDetailModal.value = false;
-      // Pas besoin de recharger, Pusher va mettre à jour automatiquement !
     } catch (error) {
       console.error("Erreur:", error);
       Swal.fire({
@@ -690,8 +572,8 @@ const rejectLoan = async (loan: Loan) => {
         showConfirmButton: false,
       });
 
+      await loadLoans();
       showDetailModal.value = false;
-      // Pas besoin de recharger, Pusher va mettre à jour automatiquement !
     } catch (error) {
       console.error("Erreur:", error);
       Swal.fire({
